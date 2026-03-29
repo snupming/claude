@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Shield } from 'lucide-vue-next'
+
+const { isLoggedIn, logout } = useAuth()
 </script>
 
 <template>
@@ -29,16 +31,28 @@ import { Shield } from 'lucide-vue-next'
 
       <!-- Auth buttons -->
       <div class="flex items-center gap-3">
-        <NuxtLink to="/login">
-          <Button variant="ghost" size="sm">
-            로그인
+        <template v-if="isLoggedIn">
+          <NuxtLink to="/dashboard">
+            <Button variant="ghost" size="sm">
+              대시보드
+            </Button>
+          </NuxtLink>
+          <Button variant="outline" size="sm" @click="logout">
+            로그아웃
           </Button>
-        </NuxtLink>
-        <NuxtLink to="/signup">
-          <Button size="sm">
-            무료로 시작하기
-          </Button>
-        </NuxtLink>
+        </template>
+        <template v-else>
+          <NuxtLink to="/login">
+            <Button variant="ghost" size="sm">
+              로그인
+            </Button>
+          </NuxtLink>
+          <NuxtLink to="/signup">
+            <Button size="sm">
+              무료로 시작하기
+            </Button>
+          </NuxtLink>
+        </template>
       </div>
     </div>
   </header>
