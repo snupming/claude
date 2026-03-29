@@ -5,22 +5,17 @@ definePageMeta({
   layout: 'default',
 })
 
-const { user, logout } = useAuth()
+const { user } = useAuth()
 </script>
 
 <template>
   <div class="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-4xl space-y-8">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold tracking-tight">대시보드</h1>
-          <p class="mt-1 text-muted-foreground">
-            안녕하세요, {{ user?.name ?? user?.email }}님
-          </p>
-        </div>
-        <Button variant="outline" @click="logout">
-          로그아웃
-        </Button>
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">대시보드</h1>
+        <p class="mt-1 text-muted-foreground">
+          안녕하세요, {{ user?.name ?? user?.email }}님
+        </p>
       </div>
 
       <Card>

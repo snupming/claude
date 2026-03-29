@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Sun, Moon, Monitor, Menu, X } from 'lucide-vue-next'
+import { Sun, Moon, Menu, X, User, LayoutDashboard, LogOut } from 'lucide-vue-next'
 
-const { isLoggedIn, logout } = useAuth()
+const { user, isLoggedIn, logout } = useAuth()
 const { theme, toggleTheme } = useTheme()
 const mobileOpen = ref(false)
 
@@ -14,6 +14,13 @@ const resolvedTheme = computed(() => {
     return 'light'
   }
   return theme.value
+})
+
+/* 사용자 이니셜 (아바타 폴백) */
+const userInitial = computed(() => {
+  if (user.value?.name) return user.value.name.charAt(0).toUpperCase()
+  if (user.value?.email) return user.value.email.charAt(0).toUpperCase()
+  return 'U'
 })
 </script>
 
@@ -59,9 +66,9 @@ const resolvedTheme = computed(() => {
       </div>
     </div>
 
-    <!-- Right: Theme + EN + Auth — 프로덕션 동일 gap-1.5 sm:gap-2 -->
-    <div class="hidden items-center gap-1.5 sm:gap-2 md:flex">
-      <!-- Theme toggle — 프로덕션 동일: h-10 w-10, rounded-lg, 16x16 아이콘 -->
+    <!-- Right: Theme + EN + Auth — 프로덕션 동일 -->
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- Theme toggle — 프로덕션 동일: h-10 w-10, rounded-lg -->
       <button
         class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-foreground transition-all duration-200 hover:bg-secondary hover:text-secondary-foreground"
         title="테마 전환"
@@ -72,51 +79,69 @@ const resolvedTheme = computed(() => {
         <Sun v-else class="h-4 w-4" />
       </button>
 
-      <!-- EN 버튼 — 프로덕션 동일 -->
+      <!-- EN 버튼 — 프로덕션 동일: bg-secondary, h-8, px-2 sm:px-3 -->
       <button
-        class="inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground transition-all duration-200 hover:bg-secondary hover:text-secondary-foreground"
+        class="inline-flex h-8 items-center justify-center rounded-lg bg-secondary px-2 text-xs font-semibold text-secondary-foreground transition-all duration-200 hover:bg-secondary/80 sm:px-3"
       >
         EN
       </button>
 
+      <!-- 로그인 상태: 사용자 아바타 드롭다운 (프로덕션 동일) -->
       <template v-if="isLoggedIn">
-        <NuxtLink
-          to="/dashboard"
-          class="rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
-        >
-          대시보드
-        </NuxtLink>
-        <button
-          class="h-8 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          @click="logout"
-        >
-          로그아웃
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <button
+              class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <User class="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-48">
+            <DropdownMenuLabel class="font-normal">
+              <p class="text-sm font-medium">{{ user?.name ?? '사용자' }}</p>
+              <p class="text-xs text-muted-foreground">{{ user?.email }}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem as-child>
+              <NuxtLink to="/dashboard" class="flex cursor-pointer items-center gap-2">
+                <LayoutDashboard class="h-4 w-4" />
+                대시보드
+              </NuxtLink>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem class="cursor-pointer text-destructive focus:text-destructive" @click="logout">
+              <LogOut class="mr-2 h-4 w-4" />
+              로그아웃
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </template>
+
+      <!-- 비로그인 상태 — 프로덕션 동일: 무료 체험 + 로그인 -->
       <template v-else>
         <NuxtLink
           to="/signup"
-          class="rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
+          class="hidden h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold text-foreground transition-all duration-200 hover:bg-secondary hover:text-secondary-foreground sm:inline-flex"
         >
           무료 체험
         </NuxtLink>
         <NuxtLink
           to="/login"
-          class="flex h-8 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          class="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-2.5 text-xs font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 active:scale-[0.98] sm:px-4"
         >
           로그인
         </NuxtLink>
       </template>
-    </div>
 
-    <!-- Mobile menu button -->
-    <button
-      class="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground md:hidden"
-      @click="mobileOpen = !mobileOpen"
-    >
-      <X v-if="mobileOpen" class="h-5 w-5" />
-      <Menu v-else class="h-5 w-5" />
-    </button>
+      <!-- Mobile menu button -->
+      <button
+        class="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground md:hidden"
+        @click="mobileOpen = !mobileOpen"
+      >
+        <X v-if="mobileOpen" class="h-5 w-5" />
+        <Menu v-else class="h-5 w-5" />
+      </button>
+    </div>
   </nav>
 
   <!-- Mobile Nav Overlay -->
@@ -135,17 +160,17 @@ const resolvedTheme = computed(() => {
         문의하기
       </a>
 
-      <div class="my-2 border-t" />
-
       <template v-if="isLoggedIn">
+        <div class="my-2 border-t" />
         <NuxtLink to="/dashboard" class="block rounded-lg px-3 py-2 text-sm font-medium text-foreground" @click="mobileOpen = false">
           대시보드
         </NuxtLink>
-        <button class="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted" @click="logout(); mobileOpen = false">
+        <button class="block w-full rounded-lg px-3 py-2 text-left text-sm text-destructive hover:bg-muted" @click="logout(); mobileOpen = false">
           로그아웃
         </button>
       </template>
       <template v-else>
+        <div class="my-2 border-t" />
         <NuxtLink to="/signup" class="block rounded-lg px-3 py-2 text-sm font-medium text-foreground" @click="mobileOpen = false">
           무료 체험
         </NuxtLink>
