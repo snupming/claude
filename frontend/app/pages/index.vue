@@ -134,7 +134,7 @@ const plans = [
         <!-- Stats -->
         <div class="fade-in mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-8">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
-            <p class="text-3xl font-bold text-primary sm:text-4xl" style="font-family: var(--font-mono)">{{ stat.value }}</p>
+            <p class="text-3xl font-extrabold text-primary">{{ stat.value }}</p>
             <p class="whitespace-pre-line text-xs text-muted-foreground">{{ stat.label }}</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ const plans = [
 
         <div class="fade-in space-y-4">
           <div v-for="sol in solutions" :key="sol.num" class="flex items-center gap-8 rounded-2xl border bg-card p-8 max-md:flex-col max-md:items-start max-md:gap-4">
-            <span class="text-4xl font-bold text-primary/30">{{ sol.num }}</span>
+            <span class="bg-gradient-to-b from-primary to-transparent bg-clip-text text-4xl font-extrabold text-transparent">{{ sol.num }}</span>
             <div class="flex-1">
               <h3 class="text-lg font-bold">{{ sol.title }}</h3>
               <p class="mt-1 text-sm leading-relaxed text-muted-foreground">{{ sol.description }}</p>
@@ -395,7 +395,7 @@ const plans = [
           <div
             v-for="plan in plans"
             :key="plan.name"
-            class="relative rounded-2xl border bg-card p-8 text-left transition-shadow hover:shadow-md"
+            class="relative flex flex-col rounded-3xl border bg-card p-9 text-left transition-all"
             :class="plan.popular ? 'border-primary shadow-md' : ''"
           >
             <div v-if="plan.popular" class="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -416,15 +416,14 @@ const plans = [
               </li>
             </ul>
 
-            <NuxtLink to="/signup" class="mt-8 block">
-              <button
-                class="w-full rounded-xl py-3 text-sm font-semibold transition-colors"
-                :class="plan.popular
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'border border-border text-foreground hover:bg-muted'"
-              >
-                {{ plan.cta }}
-              </button>
+            <NuxtLink
+              to="/signup"
+              class="mt-auto w-full inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-all duration-200 h-10 px-4 py-2"
+              :class="plan.popular
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]'
+                : 'border border-border bg-transparent text-foreground hover:bg-secondary hover:text-secondary-foreground'"
+            >
+              {{ plan.cta }}
             </NuxtLink>
           </div>
         </div>
