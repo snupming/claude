@@ -3,7 +3,18 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
-  modules: ['shadcn-nuxt', '@nuxt/fonts'],
+  modules: ['shadcn-nuxt'],
+
+  app: {
+    head: {
+      script: [
+        {
+          innerHTML: `(function(){var t=localStorage.getItem('ownpic-theme');var s=!t||t==='system';var d=s?window.matchMedia('(prefers-color-scheme: dark)').matches:t==='dark';document.documentElement.setAttribute('data-theme',d?'dark':'light')})()`,
+          type: 'text/javascript',
+        },
+      ],
+    },
+  },
 
   shadcn: {
     prefix: '',

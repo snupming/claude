@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Menu, X } from 'lucide-vue-next'
+import { Menu, X, Sun, Moon, Monitor } from 'lucide-vue-next'
 
 const { isLoggedIn, logout } = useAuth()
+const { theme, toggleTheme } = useTheme()
 const mobileOpen = ref(false)
 </script>
 
@@ -39,6 +40,16 @@ const mobileOpen = ref(false)
 
       <!-- Desktop Auth -->
       <div class="hidden items-center gap-3 md:flex">
+        <!-- Theme toggle -->
+        <button
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          @click="toggleTheme"
+          :title="`테마: ${theme === 'system' ? '시스템' : theme === 'dark' ? '다크' : '라이트'}`"
+        >
+          <Sun v-if="theme === 'light'" class="h-4 w-4" />
+          <Moon v-else-if="theme === 'dark'" class="h-4 w-4" />
+          <Monitor v-else class="h-4 w-4" />
+        </button>
         <template v-if="isLoggedIn">
           <NuxtLink to="/dashboard">
             <Button variant="ghost" size="sm" class="text-sm font-medium">
