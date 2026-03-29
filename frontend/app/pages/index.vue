@@ -93,12 +93,12 @@ const plans = [
 
 <template>
   <div>
-    <!-- Hero Section -->
-    <section class="pb-24 pt-20 text-center">
-      <div class="mx-auto max-w-4xl px-6">
+    <!-- ===================== Hero ===================== -->
+    <section class="py-24 max-md:py-20 pt-20 text-center">
+      <div class="mx-auto max-w-6xl px-6">
         <!-- Badge -->
         <div class="fade-in">
-          <span class="mb-6 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             이커머스 셀러를 위한 이미지 보호 서비스
           </span>
         </div>
@@ -110,29 +110,29 @@ const plans = [
           </span>
         </h1>
 
-        <p class="fade-in fade-in-delay-2 mx-auto mb-9 max-w-xl text-lg leading-relaxed text-muted-foreground">
+        <p class="fade-in fade-in-delay-2 mx-auto mb-9 max-w-xl text-lg leading-relaxed text-muted-foreground max-md:text-base">
           온픽은 보이지 않는 디지털 각인으로 당신의 상품 이미지를 보호하고, 도용을 증명합니다.
         </p>
 
-        <!-- CTA Buttons -->
-        <div class="fade-in fade-in-delay-3 mb-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <!-- CTA Buttons — 프로덕션: mb-16, justify-center, gap-3 -->
+        <div class="fade-in fade-in-delay-3 mb-16 flex justify-center gap-3 max-sm:flex-col max-sm:items-center">
           <NuxtLink
             to="/signup"
-            class="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 active:scale-[0.98]"
           >
             내 스토어 무료 검사
             <ArrowRight class="h-4 w-4" />
           </NuxtLink>
           <NuxtLink
             to="/signup"
-            class="inline-flex h-12 items-center rounded-xl border border-border px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            class="inline-flex items-center justify-center rounded-lg border border-border bg-transparent px-6 py-3 font-semibold text-foreground transition-all duration-200 hover:bg-secondary hover:text-secondary-foreground"
           >
             무료로 체험하기
           </NuxtLink>
         </div>
 
-        <!-- Stats -->
-        <div class="fade-in mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-8">
+        <!-- Stats — 프로덕션: max-w-xl, max-md:grid-cols-1 max-md:gap-5 -->
+        <div class="fade-in mx-auto grid max-w-xl grid-cols-3 gap-8 max-md:grid-cols-1 max-md:gap-5">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
             <p class="text-3xl font-extrabold text-primary">{{ stat.value }}</p>
             <p class="whitespace-pre-line text-xs text-muted-foreground">{{ stat.label }}</p>
@@ -141,24 +141,24 @@ const plans = [
       </div>
     </section>
 
-    <!-- Demo Section (도용 탐지 시연) -->
-    <section class="py-24 text-center">
-      <div class="mx-auto max-w-4xl px-6">
-        <div class="fade-in">
+    <!-- ===================== Demo (도용 탐지 시연) ===================== -->
+    <section class="py-24 max-md:py-20 bg-gradient-to-b from-background-secondary to-background">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="fade-in text-center">
           <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             <Shield class="h-4 w-4" />
             도용 탐지 시연
           </span>
         </div>
-        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-center text-3xl font-extrabold max-md:text-2xl">
           당신의 이미지, 지금 어디에서 쓰이고 있을까?
         </h2>
-        <p class="mx-auto mb-10 max-w-xl text-base leading-relaxed text-muted-foreground">
+        <p class="mx-auto mb-10 max-w-xl text-center text-base leading-relaxed text-muted-foreground">
           상품 이미지를 업로드하면 AI가 워터마크를 삽입하고, 인터넷에서 도용된 곳을 즉시 찾아냅니다.
         </p>
 
-        <!-- Upload Area Placeholder -->
-        <div class="mx-auto max-w-2xl rounded-2xl border bg-card p-8">
+        <!-- Upload Card — 프로덕션: rounded-3xl, p-10, max-md:p-6 -->
+        <div class="fade-in mx-auto max-w-3xl rounded-3xl border border-border bg-card p-10 max-md:p-6">
           <div class="rounded-xl border-2 border-dashed border-border/60 px-8 py-16 text-center">
             <Upload class="mx-auto h-10 w-10 text-muted-foreground/50" />
             <p class="mt-4 text-sm text-muted-foreground">상품 이미지를 드래그하거나 클릭하세요</p>
@@ -171,11 +171,11 @@ const plans = [
       </div>
     </section>
 
-    <!-- Problem Section -->
-    <section class="bg-[#fafafa] py-24">
-      <div class="mx-auto max-w-5xl px-6">
+    <!-- ===================== Problem ===================== -->
+    <section class="py-24 max-md:py-20 bg-background-secondary">
+      <div class="mx-auto max-w-6xl px-6">
         <div class="fade-in">
-          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/5 px-3.5 py-1.5 text-xs font-semibold text-destructive">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-3.5 py-1.5 text-xs font-semibold text-destructive">
             <Scale class="h-4 w-4" />
             문제
           </span>
@@ -184,8 +184,14 @@ const plans = [
           매일 도용당하는 당신의 상품 이미지
         </h2>
 
-        <div class="fade-in grid gap-6 sm:grid-cols-3">
-          <div v-for="problem in problems" :key="problem.title" class="rounded-2xl border bg-card p-8">
+        <!-- 프로덕션: grid-cols-3, hover:-translate-y-1 hover:border-border/50 -->
+        <div class="grid grid-cols-3 gap-6 max-md:grid-cols-1">
+          <div
+            v-for="(problem, idx) in problems"
+            :key="problem.title"
+            class="rounded-2xl border border-border bg-card p-8 transition-all hover:-translate-y-1 hover:border-border/50 fade-in"
+            :class="`fade-in-delay-${idx + 1}`"
+          >
             <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
               <component :is="problem.icon" class="h-6 w-6 text-destructive/70" />
             </div>
@@ -198,9 +204,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- Solution Section -->
-    <section class="py-24">
-      <div class="mx-auto max-w-5xl px-6">
+    <!-- ===================== Solution ===================== -->
+    <section class="py-24 max-md:py-20">
+      <div class="mx-auto max-w-6xl px-6">
         <div class="fade-in">
           <span class="mb-5 inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             ✦ 솔루션
@@ -210,14 +216,19 @@ const plans = [
           온픽이 해결합니다
         </h2>
 
+        <!-- 프로덕션: grid grid-cols-[80px_1fr_auto], px-8 py-9, hover:translate-x-1 hover:border-primary/25 -->
         <div class="fade-in space-y-4">
-          <div v-for="sol in solutions" :key="sol.num" class="flex items-center gap-8 rounded-2xl border bg-card p-8 max-md:flex-col max-md:items-start max-md:gap-4">
+          <div
+            v-for="sol in solutions"
+            :key="sol.num"
+            class="grid grid-cols-[80px_1fr_auto] items-center gap-8 rounded-2xl border border-border bg-card px-8 py-9 transition-all hover:translate-x-1 hover:border-primary/25 max-md:grid-cols-[60px_1fr] max-md:gap-5"
+          >
             <span class="bg-gradient-to-b from-primary to-transparent bg-clip-text text-4xl font-extrabold text-transparent">{{ sol.num }}</span>
-            <div class="flex-1">
+            <div>
               <h3 class="text-lg font-bold">{{ sol.title }}</h3>
               <p class="mt-1 text-sm leading-relaxed text-muted-foreground">{{ sol.description }}</p>
             </div>
-            <span class="rounded-full bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+            <span class="rounded-full bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary max-md:col-span-2 max-md:justify-self-start">
               {{ sol.tag }}
             </span>
           </div>
@@ -225,9 +236,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- Integration Section (원클릭 연동) -->
-    <section class="bg-[#fafafa] py-24">
-      <div class="mx-auto max-w-5xl px-6 text-center">
+    <!-- ===================== Integration (원클릭 연동) ===================== -->
+    <section class="py-24 max-md:py-20 bg-background-secondary">
+      <div class="mx-auto max-w-6xl px-6 text-center">
         <div class="fade-in">
           <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             <Link2 class="h-4 w-4" />
@@ -257,8 +268,8 @@ const plans = [
           </span>
         </div>
 
-        <!-- 4-step process -->
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- 4-step process — 프로덕션: max-w-5xl grid-cols-4 gap-3 max-md:grid-cols-2 -->
+        <div class="mx-auto grid max-w-5xl grid-cols-4 gap-3 max-md:grid-cols-2">
           <div class="rounded-2xl border bg-card p-6 text-center">
             <div class="mx-auto mb-3 text-sm font-medium text-muted-foreground">● 스토어 연동</div>
             <div class="rounded-xl bg-muted/50 p-4 text-left text-xs text-muted-foreground">
@@ -274,7 +285,7 @@ const plans = [
           <div class="rounded-2xl border bg-card p-6 text-center">
             <div class="mx-auto mb-3 flex items-center justify-between text-sm font-medium text-muted-foreground">
               <span>● 상품 목록</span>
-              <span class="text-primary font-bold">248</span>
+              <span class="font-bold text-primary">248</span>
             </div>
             <div class="space-y-2">
               <div class="flex items-center gap-2"><div class="h-6 w-8 rounded bg-muted"></div><div class="h-3 flex-1 rounded bg-muted"></div></div>
@@ -309,9 +320,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- AI 기본법 Section -->
-    <section class="py-24 text-center">
-      <div class="mx-auto max-w-5xl px-6">
+    <!-- ===================== AI 기본법 ===================== -->
+    <section class="py-24 max-md:py-20">
+      <div class="mx-auto max-w-6xl px-6 text-center">
         <div class="fade-in">
           <span class="mb-5 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             2026 AI 기본법 시행
@@ -324,18 +335,19 @@ const plans = [
           2026년 1월 AI 기본법 시행으로 디지털 콘텐츠의 투명성이 법적 의무가 되었습니다.
         </p>
 
-        <div class="fade-in grid gap-6 sm:grid-cols-3">
-          <div class="rounded-2xl border bg-card p-8 text-left">
+        <!-- 프로덕션: max-w-4xl grid-cols-3 gap-5 max-md:grid-cols-1, 카드 p-7, hover:border-warning/40 -->
+        <div class="fade-in mx-auto grid max-w-4xl grid-cols-3 gap-5 max-md:grid-cols-1">
+          <div class="rounded-2xl border border-border bg-card p-7 text-left transition-colors hover:border-warning/40">
             <Scale class="h-8 w-8 text-foreground/80" />
             <h3 class="mt-5 text-base font-bold">AI 생성물 표시 의무화</h3>
             <p class="mt-2 text-sm text-muted-foreground">생성형 AI로 만든 이미지에는 워터마크 표시가 법적 의무입니다.</p>
           </div>
-          <div class="rounded-2xl border bg-card p-8 text-left">
+          <div class="rounded-2xl border border-border bg-card p-7 text-left transition-colors hover:border-warning/40">
             <ShieldCheck class="h-8 w-8 text-foreground/80" />
             <h3 class="mt-5 text-base font-bold">원본 소유권 증명</h3>
             <p class="mt-2 text-sm text-muted-foreground">AI가 만든 이미지와 직접 촬영한 상품 사진을 구분할 수 있어야 합니다.</p>
           </div>
-          <div class="rounded-2xl border bg-card p-8 text-left">
+          <div class="rounded-2xl border border-border bg-card p-7 text-left transition-colors hover:border-warning/40">
             <FileCheck class="h-8 w-8 text-foreground/80" />
             <h3 class="mt-5 text-base font-bold">비가시 워터마크</h3>
             <p class="mt-2 text-sm text-muted-foreground">온픽의 비가시 워터마크는 AI 기본법 대응과 도용 방지를 동시에 해결합니다.</p>
@@ -344,9 +356,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- Free Tool Section (무료 도구) -->
-    <section class="bg-[#fafafa] py-24 text-center">
-      <div class="mx-auto max-w-3xl px-6">
+    <!-- ===================== Free Tool (무료 도구) ===================== -->
+    <section class="py-24 max-md:py-20 bg-background-secondary">
+      <div class="mx-auto max-w-6xl px-6 text-center">
         <div class="fade-in">
           <span class="mb-5 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             무료 도구
@@ -359,8 +371,8 @@ const plans = [
           이미지에 보이지 않는 메시지를 삽입하고 추출해보세요.
         </p>
 
-        <!-- Upload Area -->
-        <div class="mx-auto max-w-2xl rounded-2xl border bg-card p-8">
+        <!-- Upload Card — 프로덕션: max-w-2xl, rounded-3xl, p-9 -->
+        <div class="fade-in mx-auto max-w-2xl rounded-3xl border border-border bg-card p-9">
           <div class="rounded-xl border-2 border-dashed border-border/60 px-8 py-16 text-center">
             <Upload class="mx-auto h-10 w-10 text-muted-foreground/50" />
             <p class="mt-4 text-sm text-muted-foreground">이미지를 드래그하거나 클릭</p>
@@ -375,9 +387,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- Pricing Section -->
-    <section id="pricing" class="py-24 text-center">
-      <div class="mx-auto max-w-5xl px-6">
+    <!-- ===================== Pricing ===================== -->
+    <section id="pricing" class="py-24 max-md:py-20">
+      <div class="mx-auto max-w-6xl px-6 text-center">
         <div class="fade-in">
           <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
             <Check class="h-4 w-4" />
@@ -391,12 +403,16 @@ const plans = [
           무료로 시작하고, 비즈니스가 성장하면 업그레이드하세요.
         </p>
 
-        <div class="fade-in grid gap-6 sm:grid-cols-3">
+        <!-- 프로덕션: grid-cols-3, gap-6, max-md:grid-cols-1 -->
+        <div class="grid grid-cols-3 gap-6 max-md:grid-cols-1">
           <div
-            v-for="plan in plans"
+            v-for="(plan, idx) in plans"
             :key="plan.name"
-            class="relative flex flex-col rounded-3xl border bg-card p-9 text-left transition-all"
-            :class="plan.popular ? 'border-primary shadow-md' : ''"
+            class="relative flex flex-col rounded-3xl border bg-card p-9 text-left transition-all fade-in"
+            :class="[
+              plan.popular ? 'border-primary shadow-md' : 'border-border',
+              `fade-in-delay-${idx + 1}`
+            ]"
           >
             <div v-if="plan.popular" class="absolute -top-3 left-1/2 -translate-x-1/2">
               <span class="rounded-full bg-primary px-4 py-1 text-xs font-semibold text-primary-foreground">인기</span>
@@ -416,6 +432,7 @@ const plans = [
               </li>
             </ul>
 
+            <!-- 프로덕션: mt-auto w-full, h-10, rounded-lg -->
             <NuxtLink
               to="/signup"
               class="mt-auto w-full inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-all duration-200 h-10 px-4 py-2"
@@ -430,9 +447,9 @@ const plans = [
       </div>
     </section>
 
-    <!-- Final CTA Section -->
-    <section class="py-24 text-center">
-      <div class="mx-auto max-w-3xl px-6">
+    <!-- ===================== Final CTA ===================== -->
+    <section class="py-24 max-md:py-20 text-center">
+      <div class="mx-auto max-w-6xl px-6">
         <h2 class="fade-in text-3xl font-extrabold max-md:text-2xl">
           내 상품 이미지, 지금 보호하세요
         </h2>
@@ -442,7 +459,7 @@ const plans = [
         <div class="mt-8">
           <NuxtLink
             to="/signup"
-            class="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-8 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 active:scale-[0.98]"
           >
             무료로 시작하기
             <ArrowRight class="h-4 w-4" />
