@@ -2,7 +2,7 @@
 import { Shield } from 'lucide-vue-next'
 
 definePageMeta({
-  layout: 'default',
+  layout: 'dashboard',
 })
 
 const { user } = useAuth()

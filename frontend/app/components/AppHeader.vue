@@ -86,8 +86,12 @@ const userInitial = computed(() => {
         EN
       </button>
 
-      <!-- 로그인 상태: 사용자 아바타 드롭다운 (프로덕션 동일) -->
+      <!-- 로그인 상태: 알림 + 사용자 아바타 드롭다운 -->
       <template v-if="isLoggedIn">
+        <!-- 알림 버튼 + 팝업 -->
+        <NotificationPopover />
+
+        <!-- 사용자 아바타 드롭다운 -->
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <button
