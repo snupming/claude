@@ -1,0 +1,50 @@
+plugins {
+    java
+    id("org.springframework.boot") version "4.0.4"
+    id("io.spring.dependency-management") version "1.1.7"
+}
+
+group = "com.ownpic"
+version = "0.0.1-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring Boot starters
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // JWT
+    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+
+    // Database
+    runtimeOnly("org.postgresql:postgresql")
+
+    // Flyway
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
+    // Dev tools
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+
+    // Test
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testRuntimeOnly("com.h2database:h2")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}

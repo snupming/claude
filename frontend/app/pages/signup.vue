@@ -27,6 +27,8 @@ const canSubmit = computed(() =>
   && !isLoading.value,
 )
 
+const { signup } = useAuth()
+
 async function handleSignup() {
   if (!canSubmit.value) return
 
@@ -34,30 +36,19 @@ async function handleSignup() {
   isLoading.value = true
 
   try {
-    const { data, error } = await useFetch('/api/auth/signup', {
-      method: 'POST',
-      body: {
-        name: name.value,
-        email: email.value,
-        password: password.value,
-      },
-    })
-
-    if (error.value) {
-      const detail = error.value.data?.detail
-      if (error.value.statusCode === 409) {
-        errorMessage.value = '이미 가입된 이메일입니다. 로그인해주세요.'
-      }
-      else {
-        errorMessage.value = detail ?? '회원가입에 실패했습니다. 다시 시도해주세요.'
-      }
-      return
-    }
-
+    await signup(name.value, email.value, password.value)
     await navigateTo('/dashboard')
   }
-  catch {
-    errorMessage.value = '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.'
+  catch (err: any) {
+    const statusCode = err?.data?.statusCode ?? err?.statusCode
+    const detail = err?.data?.data?.detail ?? err?.data?.detail
+
+    if (statusCode === 409) {
+      errorMessage.value = '이미 가입된 이메일입니다. 로그인해주세요.'
+    }
+    else {
+      errorMessage.value = detail ?? '회원가입에 실패했습니다. 다시 시도해주세요.'
+    }
   }
   finally {
     isLoading.value = false

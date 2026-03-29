@@ -11,25 +11,19 @@ const showPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 
+const { login } = useAuth()
+
 async function handleLogin() {
   errorMessage.value = ''
   isLoading.value = true
 
   try {
-    const { data, error } = await useFetch('/api/auth/login', {
-      method: 'POST',
-      body: { email: email.value, password: password.value },
-    })
-
-    if (error.value) {
-      errorMessage.value = error.value.data?.detail ?? '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.'
-      return
-    }
-
+    await login(email.value, password.value)
     await navigateTo('/dashboard')
   }
-  catch {
-    errorMessage.value = '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.'
+  catch (err: any) {
+    const detail = err?.data?.data?.detail ?? err?.data?.detail
+    errorMessage.value = detail ?? '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.'
   }
   finally {
     isLoading.value = false
