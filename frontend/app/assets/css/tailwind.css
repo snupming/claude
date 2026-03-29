@@ -73,15 +73,15 @@
   --primary-hover: #0e7490; /* cyan-700 */
   --primary-foreground: #ffffff;
   --secondary: #f4f4f5; /* gray-100 */
-  --secondary-foreground: #09090b;
+  --secondary-foreground: #18181b; /* gray-900 — 프로덕션 동일 */
   --muted: #f4f4f5;
   --muted-foreground: #71717a; /* gray-500 */
-  --accent: #f4f4f5;
-  --accent-foreground: #09090b;
-  --destructive: #ef4444; /* red-500 */
+  --accent: #0891b2; /* cyan-600 — 프로덕션 동일 */
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626; /* red-600 — 프로덕션 동일 */
   --destructive-foreground: #ffffff;
-  --success: #22c55e; /* green-500 */
-  --warning: #eab308; /* yellow-500 */
+  --success: #16a34a; /* green-600 — 프로덕션 동일 */
+  --warning: #ca8a04; /* yellow-600 — 프로덕션 동일 */
   --border: #e4e4e7; /* gray-200 */
   --input: #e4e4e7;
   --ring: #0891b2;
@@ -92,8 +92,8 @@
   --chart-4: #f59e0b;
   --chart-5: #8b5cf6;
 
-  --sidebar: #f4f4f5;
-  --sidebar-foreground: #09090b;
+  --sidebar: #fafafa; /* 프로덕션 동일 */
+  --sidebar-foreground: #52525b; /* gray-600 — 프로덕션 동일 */
   --sidebar-primary: #0891b2;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f4f4f5;
@@ -117,13 +117,13 @@
   --popover-foreground: #fafafa;
   --primary: #06b6d4; /* cyan-500 */
   --primary-hover: #22d3ee; /* cyan-400 */
-  --primary-foreground: #ffffff;
+  --primary-foreground: #09090b; /* 프로덕션 동일 */
   --secondary: #27272a; /* gray-800 */
-  --secondary-foreground: #fafafa;
+  --secondary-foreground: #f4f4f5; /* 프로덕션 동일 */
   --muted: #27272a;
   --muted-foreground: #a1a1aa; /* gray-400 */
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
+  --accent: #06b6d4; /* cyan-500 — 프로덕션 동일 */
+  --accent-foreground: #09090b;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --success: #22c55e;
