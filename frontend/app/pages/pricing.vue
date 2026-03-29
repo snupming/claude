@@ -5,8 +5,11 @@ definePageMeta({
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-24 text-center sm:px-6 lg:px-8">
-    <h1 class="text-3xl font-bold tracking-tight">요금제</h1>
-    <p class="mt-4 text-muted-foreground">준비 중입니다.</p>
+  <div class="flex min-h-[50vh] items-center justify-center">
+    <p class="text-muted-foreground">
+      요금제는
+      <NuxtLink to="/#pricing" class="font-medium text-primary hover:underline">메인 페이지</NuxtLink>에서
+      확인하세요.
+    </p>
   </div>
 </template>
