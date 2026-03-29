@@ -1,7 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
   modules: ['shadcn-nuxt', '@nuxt/fonts'],
@@ -24,4 +23,11 @@ export default defineNuxtConfig({
     '/signup': { ssr: true },
     '/dashboard/**': { ssr: false },
   },
+  // 컴포넌트 자동 import — 폴더명 접두사 제거
+  components: [
+    {
+      path: '~/components',
+      pathPrefix: false,
+    },
+  ],
 })
