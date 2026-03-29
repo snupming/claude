@@ -32,8 +32,8 @@ dependencies {
     // Database
     runtimeOnly("org.postgresql:postgresql")
 
-    // Flyway
-    implementation("org.flywaydb:flyway-core")
+    // Flyway (Spring Boot 4는 starter 필수)
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // Dev tools
