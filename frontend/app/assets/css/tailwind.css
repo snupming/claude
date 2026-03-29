@@ -160,10 +160,15 @@
 
 /* ============================================
    Fade-in 애니메이션 (프로덕션 동일)
+   SSR 하이드레이션 이슈 방지:
+   - [data-fade-ready] 없으면 → 콘텐츠 정상 표시 (SSR)
+   - [data-fade-ready] 있으면 → opacity: 0 시작, 스크롤 시 visible 전환
    ============================================ */
-.fade-in {
+[data-fade-ready] .fade-in:not(.visible) {
   opacity: 0;
   transform: translateY(20px);
+}
+.fade-in {
   transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
 .fade-in.visible {
