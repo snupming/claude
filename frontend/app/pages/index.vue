@@ -13,6 +13,8 @@ import {
   Check,
 } from 'lucide-vue-next'
 
+useFadeIn()
+
 const stats = [
   { value: '59,565건', label: '2024년 저작권법 위반 단속 건수\n(경찰청)' },
   { value: '222%↑', label: '전년 대비 저작권 위반 사건 증가율\n(지재위)' },
@@ -95,23 +97,25 @@ const plans = [
     <section class="pb-24 pt-20 text-center">
       <div class="mx-auto max-w-4xl px-6">
         <!-- Badge -->
-        <span class="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          이커머스 셀러를 위한 이미지 보호 서비스
-        </span>
+        <div class="fade-in">
+          <span class="mb-6 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            이커머스 셀러를 위한 이미지 보호 서비스
+          </span>
+        </div>
 
-        <h1 class="mb-5 text-5xl font-extrabold leading-tight max-md:text-4xl">
+        <h1 class="fade-in fade-in-delay-1 mb-5 text-5xl font-extrabold leading-tight max-md:text-4xl">
           내 상품 이미지,<br>
           <span class="bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
             도용당하고 있습니다
           </span>
         </h1>
 
-        <p class="mx-auto mb-9 max-w-xl text-lg leading-relaxed text-muted-foreground">
+        <p class="fade-in fade-in-delay-2 mx-auto mb-9 max-w-xl text-lg leading-relaxed text-muted-foreground">
           온픽은 보이지 않는 디지털 각인으로 당신의 상품 이미지를 보호하고, 도용을 증명합니다.
         </p>
 
         <!-- CTA Buttons -->
-        <div class="mb-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div class="fade-in fade-in-delay-3 mb-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <NuxtLink
             to="/signup"
             class="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
@@ -128,7 +132,7 @@ const plans = [
         </div>
 
         <!-- Stats -->
-        <div class="mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-8">
+        <div class="fade-in mx-auto mt-12 grid max-w-3xl grid-cols-3 gap-8">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
             <p class="text-3xl font-bold text-primary sm:text-4xl" style="font-family: var(--font-mono)">{{ stat.value }}</p>
             <p class="whitespace-pre-line text-xs text-muted-foreground">{{ stat.label }}</p>
@@ -140,11 +144,13 @@ const plans = [
     <!-- Demo Section (도용 탐지 시연) -->
     <section class="py-24 text-center">
       <div class="mx-auto max-w-4xl px-6">
-        <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          <Shield class="h-4 w-4" />
-          도용 탐지 시연
-        </span>
-        <h2 class="mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            <Shield class="h-4 w-4" />
+            도용 탐지 시연
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
           당신의 이미지, 지금 어디에서 쓰이고 있을까?
         </h2>
         <p class="mx-auto mb-10 max-w-xl text-base leading-relaxed text-muted-foreground">
@@ -168,15 +174,17 @@ const plans = [
     <!-- Problem Section -->
     <section class="bg-[#fafafa] py-24">
       <div class="mx-auto max-w-5xl px-6">
-        <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/5 px-4 py-1.5 text-sm font-medium text-destructive">
-          <Scale class="h-4 w-4" />
-          문제
-        </span>
-        <h2 class="mb-12 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/5 px-3.5 py-1.5 text-xs font-semibold text-destructive">
+            <Scale class="h-4 w-4" />
+            문제
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-12 text-3xl font-extrabold max-md:text-2xl">
           매일 도용당하는 당신의 상품 이미지
         </h2>
 
-        <div class="grid gap-6 sm:grid-cols-3">
+        <div class="fade-in grid gap-6 sm:grid-cols-3">
           <div v-for="problem in problems" :key="problem.title" class="rounded-2xl border bg-card p-8">
             <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
               <component :is="problem.icon" class="h-6 w-6 text-destructive/70" />
@@ -193,14 +201,16 @@ const plans = [
     <!-- Solution Section -->
     <section class="py-24">
       <div class="mx-auto max-w-5xl px-6">
-        <span class="mb-5 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          ✦ 솔루션
-        </span>
-        <h2 class="mb-12 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            ✦ 솔루션
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-12 text-3xl font-extrabold max-md:text-2xl">
           온픽이 해결합니다
         </h2>
 
-        <div class="space-y-4">
+        <div class="fade-in space-y-4">
           <div v-for="sol in solutions" :key="sol.num" class="flex items-center gap-8 rounded-2xl border bg-card p-8 max-md:flex-col max-md:items-start max-md:gap-4">
             <span class="text-4xl font-bold text-primary/30">{{ sol.num }}</span>
             <div class="flex-1">
@@ -218,11 +228,13 @@ const plans = [
     <!-- Integration Section (원클릭 연동) -->
     <section class="bg-[#fafafa] py-24">
       <div class="mx-auto max-w-5xl px-6 text-center">
-        <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          <Link2 class="h-4 w-4" />
-          원클릭 연동
-        </span>
-        <h2 class="mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            <Link2 class="h-4 w-4" />
+            원클릭 연동
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
           네이버 스마트스토어 연동 수천 장도 한번에
         </h2>
         <p class="mx-auto mb-10 max-w-xl text-base text-muted-foreground">
@@ -300,17 +312,19 @@ const plans = [
     <!-- AI 기본법 Section -->
     <section class="py-24 text-center">
       <div class="mx-auto max-w-5xl px-6">
-        <span class="mb-5 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          2026 AI 기본법 시행
-        </span>
-        <h2 class="mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            2026 AI 기본법 시행
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
           AI 시대, 이미지 소유권 증명이 더 중요해졌습니다
         </h2>
         <p class="mx-auto mb-12 max-w-xl text-base text-muted-foreground">
           2026년 1월 AI 기본법 시행으로 디지털 콘텐츠의 투명성이 법적 의무가 되었습니다.
         </p>
 
-        <div class="grid gap-6 sm:grid-cols-3">
+        <div class="fade-in grid gap-6 sm:grid-cols-3">
           <div class="rounded-2xl border bg-card p-8 text-left">
             <Scale class="h-8 w-8 text-foreground/80" />
             <h3 class="mt-5 text-base font-bold">AI 생성물 표시 의무화</h3>
@@ -333,10 +347,12 @@ const plans = [
     <!-- Free Tool Section (무료 도구) -->
     <section class="bg-[#fafafa] py-24 text-center">
       <div class="mx-auto max-w-3xl px-6">
-        <span class="mb-5 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          무료 도구
-        </span>
-        <h2 class="mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            무료 도구
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
           지금 바로 체험해보세요
         </h2>
         <p class="mx-auto mb-10 max-w-xl text-base text-muted-foreground">
@@ -362,18 +378,20 @@ const plans = [
     <!-- Pricing Section -->
     <section id="pricing" class="py-24 text-center">
       <div class="mx-auto max-w-5xl px-6">
-        <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-          <Check class="h-4 w-4" />
-          요금제
-        </span>
-        <h2 class="mb-4 text-3xl font-extrabold max-md:text-2xl">
+        <div class="fade-in">
+          <span class="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+            <Check class="h-4 w-4" />
+            요금제
+          </span>
+        </div>
+        <h2 class="fade-in fade-in-delay-1 mb-4 text-3xl font-extrabold max-md:text-2xl">
           합리적인 가격으로 시작하세요
         </h2>
         <p class="mx-auto mb-14 max-w-xl text-base text-muted-foreground">
           무료로 시작하고, 비즈니스가 성장하면 업그레이드하세요.
         </p>
 
-        <div class="grid gap-6 sm:grid-cols-3">
+        <div class="fade-in grid gap-6 sm:grid-cols-3">
           <div
             v-for="plan in plans"
             :key="plan.name"
@@ -416,7 +434,7 @@ const plans = [
     <!-- Final CTA Section -->
     <section class="py-24 text-center">
       <div class="mx-auto max-w-3xl px-6">
-        <h2 class="text-3xl font-extrabold max-md:text-2xl">
+        <h2 class="fade-in text-3xl font-extrabold max-md:text-2xl">
           내 상품 이미지, 지금 보호하세요
         </h2>
         <p class="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
