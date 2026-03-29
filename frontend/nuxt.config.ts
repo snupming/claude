@@ -7,6 +7,12 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      link: [
+        {
+          rel: 'stylesheet',
+          href: 'https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css',
+        },
+      ],
       script: [
         {
           innerHTML: `(function(){var t=localStorage.getItem('ownpic-theme');var s=!t||t==='system';var d=s?window.matchMedia('(prefers-color-scheme: dark)').matches:t==='dark';document.documentElement.setAttribute('data-theme',d?'dark':'light')})()`,

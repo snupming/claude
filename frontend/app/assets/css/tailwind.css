@@ -1,8 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Wanted Sans Variable — ownpic.kr 동일 폰트 */
-@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css");
+/* Wanted Sans Variable — nuxt.config.ts head link로 로드 */
 
 @custom-variant dark (&:is([data-theme="dark"] *));
 
