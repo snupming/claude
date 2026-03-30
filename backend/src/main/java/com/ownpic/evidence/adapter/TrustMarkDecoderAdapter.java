@@ -40,6 +40,7 @@ class TrustMarkDecoderAdapter implements WatermarkDecoderPort {
     private OrtSession session;
     private String inputName;
     private String outputName;
+    private boolean available;
 
     @PostConstruct
     void init() {
@@ -54,9 +55,11 @@ class TrustMarkDecoderAdapter implements WatermarkDecoderPort {
 
             inputName = session.getInputNames().iterator().next();
             outputName = session.getOutputNames().iterator().next();
+            available = true;
             log.info("[TrustMark-Decoder] Loaded");
         } catch (Exception e) {
-            throw new RuntimeException("TrustMark decoder load failed: " + e.getMessage(), e);
+            available = false;
+            log.error("[TrustMark-Decoder] Load failed (adapter disabled): {}", e.getMessage());
         }
     }
 
@@ -67,6 +70,10 @@ class TrustMarkDecoderAdapter implements WatermarkDecoderPort {
 
     @Override
     public DecodeResult decode(byte[] imageBytes) {
+        if (!available) {
+            log.warn("[TrustMark-Decoder] Adapter disabled, returning notDetected");
+            return DecodeResult.notDetected();
+        }
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
             if (image == null) return DecodeResult.notDetected();

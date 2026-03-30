@@ -37,6 +37,7 @@ class DinoEmbeddingAdapter implements DinoEmbeddingPort {
     private OrtSession session;
     private String inputName;
     private String outputName;
+    private boolean available;
 
     DinoEmbeddingAdapter(DinoPreprocessor preprocessor) {
         this.preprocessor = preprocessor;
@@ -55,9 +56,11 @@ class DinoEmbeddingAdapter implements DinoEmbeddingPort {
 
             inputName = session.getInputNames().iterator().next();
             outputName = session.getOutputNames().iterator().next();
+            available = true;
             log.info("[DINOv2] Model loaded");
         } catch (Exception e) {
-            throw new MlEngineUnavailableException("DINOv2 model load failed: " + e.getMessage());
+            available = false;
+            log.error("[DINOv2] Model load failed (adapter disabled): {}", e.getMessage());
         }
     }
 
@@ -68,6 +71,10 @@ class DinoEmbeddingAdapter implements DinoEmbeddingPort {
 
     @Override
     public float[] generateEmbedding(byte[] imageBytes) {
+        if (!available) {
+            log.warn("[DINOv2] Adapter disabled, returning null");
+            return null;
+        }
         try {
             float[] tensor = preprocessor.preprocess(imageBytes);
             return infer(tensor);

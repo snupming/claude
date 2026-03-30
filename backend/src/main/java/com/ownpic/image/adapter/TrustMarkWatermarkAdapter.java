@@ -42,6 +42,7 @@ class TrustMarkWatermarkAdapter implements WatermarkPort {
     private String inputImageName;
     private String inputPayloadName;
     private String outputName;
+    private boolean available;
 
     @PostConstruct
     void init() {
@@ -61,9 +62,11 @@ class TrustMarkWatermarkAdapter implements WatermarkPort {
             inputPayloadName = inputNames.next();
             outputName = session.getOutputNames().iterator().next();
 
+            available = true;
             log.info("[TrustMark] Encoder loaded in {}ms", System.currentTimeMillis() - start);
         } catch (Exception e) {
-            throw new WatermarkException("TrustMark encoder load failed: " + e.getMessage(), e);
+            available = false;
+            log.error("[TrustMark] Encoder load failed (adapter disabled): {}", e.getMessage());
         }
     }
 
@@ -74,6 +77,9 @@ class TrustMarkWatermarkAdapter implements WatermarkPort {
 
     @Override
     public WatermarkResult encode(byte[] imageBytes, String payload) {
+        if (!available) {
+            throw new WatermarkException("TrustMark encoder not available (native library load failed)");
+        }
         if (payload == null || payload.length() != PAYLOAD_BITS) {
             throw new WatermarkException("Payload must be exactly " + PAYLOAD_BITS + " bits");
         }

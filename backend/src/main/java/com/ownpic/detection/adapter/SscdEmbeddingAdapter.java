@@ -37,6 +37,7 @@ class SscdEmbeddingAdapter implements SscdEmbeddingPort {
     private OrtSession session;
     private String inputName;
     private String outputName;
+    private boolean available;
 
     SscdEmbeddingAdapter(ImagePreprocessor preprocessor) {
         this.preprocessor = preprocessor;
@@ -55,9 +56,11 @@ class SscdEmbeddingAdapter implements SscdEmbeddingPort {
 
             inputName = session.getInputNames().iterator().next();
             outputName = session.getOutputNames().iterator().next();
+            available = true;
             log.info("[SSCD] Model loaded");
         } catch (Exception e) {
-            throw new MlEngineUnavailableException("SSCD model load failed: " + e.getMessage());
+            available = false;
+            log.error("[SSCD] Model load failed (adapter disabled): {}", e.getMessage());
         }
     }
 
@@ -68,6 +71,10 @@ class SscdEmbeddingAdapter implements SscdEmbeddingPort {
 
     @Override
     public float[] generateEmbedding(byte[] imageBytes) {
+        if (!available) {
+            log.warn("[SSCD] Adapter disabled, returning null");
+            return null;
+        }
         try {
             float[] tensor = preprocessor.preprocess(imageBytes);
             return infer(tensor);
