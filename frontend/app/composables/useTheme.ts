@@ -30,7 +30,7 @@ export function useTheme() {
     // light → dark → system → light
     const order: Theme[] = ['light', 'dark', 'system']
     const idx = order.indexOf(theme.value)
-    setTheme(order[(idx + 1) % order.length])
+    setTheme(order[(idx + 1) % order.length]!)
   }
 
   function initTheme() {

@@ -27,6 +27,10 @@ export default defineNuxtConfig({
     componentDir: './app/components/ui',
   },
 
+  runtimeConfig: {
+    backendUrl: 'http://localhost:8080',
+  },
+
   css: ['~/assets/css/tailwind.css'],
 
   vite: {
