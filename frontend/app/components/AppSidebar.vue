@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const props = defineProps<{
   collapsed: boolean
@@ -85,11 +86,17 @@ const tierLabel = computed(() => {
 
       <!-- 사용량 프로그레스바 -->
       <div v-if="!collapsed" class="mt-3 px-3">
-        <div class="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{{ tierLabel }} 플랜</span>
-          <span>{{ user?.imagesUsed ?? 0 }}/{{ user?.imageQuota ?? 0 }}</span>
-        </div>
-        <Progress :model-value="usagePercent" class="mt-1.5 h-1.5" />
+        <template v-if="!user">
+          <Skeleton class="h-3 w-full" />
+          <Skeleton class="mt-2 h-1.5 w-full rounded-full" />
+        </template>
+        <template v-else>
+          <div class="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{{ tierLabel }} 플랜</span>
+            <span>{{ user?.imagesUsed ?? 0 }}/{{ user?.imageQuota ?? 0 }}</span>
+          </div>
+          <Progress :model-value="usagePercent" class="mt-1.5 h-1.5" />
+        </template>
       </div>
     </div>
 
