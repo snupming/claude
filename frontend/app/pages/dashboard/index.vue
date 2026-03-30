@@ -92,13 +92,48 @@ const platforms: Platform[] = [
   },
 ]
 
-const connectedStores = ref<string[]>([])
-
-function connectStore(platformId: string) {
-  // 추후 실제 OAuth 연동으로 대체
-  connectedStores.value.push(platformId)
-  showStoreDialog.value = false
+interface StoreConnection {
+  id: number
+  platform: string
+  storeName: string | null
+  status: string
+  lastSyncedAt: string | null
+  createdAt: string
 }
+
+const connectedStores = ref<StoreConnection[]>([])
+const isConnecting = ref(false)
+
+async function fetchStores() {
+  try {
+    const data = await $fetch<StoreConnection[]>('/api/stores')
+    connectedStores.value = data.filter(s => s.status !== 'DISCONNECTED')
+  } catch {
+    // API 미연결 시 빈 상태
+  }
+}
+
+async function connectStore(platformId: string) {
+  isConnecting.value = true
+  try {
+    await $fetch('/api/stores/connect', {
+      method: 'POST',
+      body: { platform: platformId },
+    })
+    await fetchStores()
+    showStoreDialog.value = false
+  } catch (err: any) {
+    // 이미 연동된 경우 등
+  } finally {
+    isConnecting.value = false
+  }
+}
+
+function isStoreConnected(platformId: string) {
+  return connectedStores.value.some(s => s.platform === platformId.toUpperCase())
+}
+
+onMounted(fetchStores)
 </script>
 
 <template>
@@ -228,21 +263,28 @@ function connectStore(platformId: string) {
             <!-- 연동된 스토어 목록 -->
             <div v-if="connectedStores.length > 0" class="space-y-3">
               <div
-                v-for="storeId in connectedStores"
-                :key="storeId"
+                v-for="store in connectedStores"
+                :key="store.id"
                 class="flex items-center gap-4 rounded-lg border border-border p-4"
               >
                 <div
                   class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white"
-                  :class="platforms.find(p => p.id === storeId)?.color"
+                  :class="platforms.find(p => p.id === store.platform.toLowerCase())?.color ?? 'bg-muted'"
                 >
-                  {{ platforms.find(p => p.id === storeId)?.icon }}
+                  {{ platforms.find(p => p.id === store.platform.toLowerCase())?.icon ?? '?' }}
                 </div>
                 <div class="flex-1">
-                  <p class="text-sm font-medium">{{ platforms.find(p => p.id === storeId)?.name }}</p>
-                  <p class="text-xs text-muted-foreground">연동됨</p>
+                  <p class="text-sm font-medium">{{ platforms.find(p => p.id === store.platform.toLowerCase())?.name ?? store.platform }}</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ store.lastSyncedAt ? `마지막 동기화: ${new Date(store.lastSyncedAt).toLocaleDateString('ko-KR')}` : '연동됨' }}
+                  </p>
                 </div>
-                <Badge variant="secondary" class="text-green-600">활성</Badge>
+                <Badge
+                  variant="secondary"
+                  :class="store.status === 'CONNECTED' ? 'text-green-600' : store.status === 'SYNCING' ? 'text-primary' : 'text-muted-foreground'"
+                >
+                  {{ store.status === 'CONNECTED' ? '활성' : store.status === 'SYNCING' ? '동기화 중' : store.status }}
+                </Badge>
               </div>
             </div>
 
@@ -285,12 +327,12 @@ function connectStore(platformId: string) {
           :key="platform.id"
           class="flex w-full items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors"
           :class="[
-            platform.available && !connectedStores.includes(platform.id)
+            platform.available && !isStoreConnected(platform.id) && !isConnecting
               ? 'hover:border-primary/30 hover:bg-accent/30 cursor-pointer'
               : 'opacity-50 cursor-not-allowed',
           ]"
-          :disabled="!platform.available || connectedStores.includes(platform.id)"
-          @click="platform.available && !connectedStores.includes(platform.id) && connectStore(platform.id)"
+          :disabled="!platform.available || isStoreConnected(platform.id) || isConnecting"
+          @click="platform.available && !isStoreConnected(platform.id) && connectStore(platform.id)"
         >
           <div
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
@@ -301,12 +343,12 @@ function connectStore(platformId: string) {
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <p class="text-sm font-medium">{{ platform.name }}</p>
-              <Badge v-if="connectedStores.includes(platform.id)" variant="secondary" class="text-xs">연동됨</Badge>
+              <Badge v-if="isStoreConnected(platform.id)" variant="secondary" class="text-xs">연동됨</Badge>
               <Badge v-else-if="!platform.available" variant="outline" class="text-xs">준비 중</Badge>
             </div>
             <p class="mt-0.5 text-xs text-muted-foreground">{{ platform.description }}</p>
           </div>
-          <ExternalLink v-if="platform.available && !connectedStores.includes(platform.id)" class="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ExternalLink v-if="platform.available && !isStoreConnected(platform.id)" class="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
       </div>
     </DialogContent>

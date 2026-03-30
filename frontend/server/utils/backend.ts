@@ -69,3 +69,18 @@ export function clearAuthCookies(event: H3Event) {
   deleteCookie(event, 'access_token', { path: '/' })
   deleteCookie(event, 'refresh_token', { path: '/' })
 }
+
+export async function authedBackendFetch<T>(event: H3Event, path: string, options: BackendRequestOptions = {}): Promise<T> {
+  const accessToken = getAccessTokenFromCookie(event)
+  if (!accessToken) {
+    throw createError({ statusCode: 401, statusMessage: '인증이 필요합니다.' })
+  }
+
+  return backendFetch<T>(path, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+}
