@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
       imageQuota: number
       imagesUsed: number
     }
-  }>('/api/auth/signup', {
+  }>('/api/v1/auth/signup', {
     method: 'POST',
     body,
   })

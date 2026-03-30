@@ -1,8 +1,8 @@
-package com.ownpic.backend.config;
+package com.ownpic.shared.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "app.cors")
+@ConfigurationProperties(prefix = "ownpic.cors")
 public record CorsProperties(
         String allowedOrigins
 ) {}

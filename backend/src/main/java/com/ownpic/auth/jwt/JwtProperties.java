@@ -1,8 +1,8 @@
-package com.ownpic.backend.config;
+package com.ownpic.auth.jwt;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "app.jwt")
+@ConfigurationProperties(prefix = "ownpic.jwt")
 public record JwtProperties(
         String secret,
         long accessTokenExpiration,

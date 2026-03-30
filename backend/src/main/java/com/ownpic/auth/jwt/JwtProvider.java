@@ -1,6 +1,5 @@
-package com.ownpic.backend.security;
+package com.ownpic.auth.jwt;
 
-import com.ownpic.backend.config.JwtProperties;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -15,12 +14,10 @@ public class JwtProvider {
 
     private final SecretKey secretKey;
     private final long accessTokenExpiration;
-    private final long refreshTokenExpiration;
 
     public JwtProvider(JwtProperties jwtProperties) {
         this.secretKey = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiration = jwtProperties.accessTokenExpiration();
-        this.refreshTokenExpiration = jwtProperties.refreshTokenExpiration();
     }
 
     public String generateAccessToken(UUID userId, String email, String role) {
@@ -37,10 +34,6 @@ public class JwtProvider {
 
     public String generateRefreshTokenValue() {
         return UUID.randomUUID().toString();
-    }
-
-    public long getRefreshTokenExpiration() {
-        return refreshTokenExpiration;
     }
 
     public Claims parseAccessToken(String token) {

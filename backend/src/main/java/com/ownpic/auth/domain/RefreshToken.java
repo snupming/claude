@@ -1,4 +1,4 @@
-package com.ownpic.backend.entity;
+package com.ownpic.auth.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;

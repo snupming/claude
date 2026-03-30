@@ -1,6 +1,5 @@
-package com.ownpic.backend.repository;
+package com.ownpic.auth.domain;
 
-import com.ownpic.backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import java.util.UUID;

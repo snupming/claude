@@ -1,21 +1,25 @@
-package com.ownpic.backend.service;
+package com.ownpic.auth;
 
-import com.ownpic.backend.config.JwtProperties;
-import com.ownpic.backend.dto.AuthResponse;
-import com.ownpic.backend.dto.LoginRequest;
-import com.ownpic.backend.dto.SignupRequest;
-import com.ownpic.backend.entity.RefreshToken;
-import com.ownpic.backend.entity.User;
-import com.ownpic.backend.repository.RefreshTokenRepository;
-import com.ownpic.backend.repository.UserRepository;
-import com.ownpic.backend.security.JwtProvider;
+import com.ownpic.auth.domain.RefreshToken;
+import com.ownpic.auth.domain.RefreshTokenRepository;
+import com.ownpic.auth.domain.User;
+import com.ownpic.auth.domain.UserRepository;
+import com.ownpic.auth.dto.AuthResponse;
+import com.ownpic.auth.dto.LoginRequest;
+import com.ownpic.auth.dto.SignupRequest;
+import com.ownpic.auth.jwt.JwtProperties;
+import com.ownpic.auth.jwt.JwtProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 
 @Service
 public class AuthService {
@@ -67,7 +71,8 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refresh(String refreshTokenValue) {
-        var refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(refreshTokenValue)
+        var tokenHash = hashToken(refreshTokenValue);
+        var refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."));
 
         if (refreshToken.isExpired()) {
@@ -76,7 +81,6 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "만료된 리프레시 토큰입니다.");
         }
 
-        // Rotate refresh token
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
 
@@ -86,7 +90,8 @@ public class AuthService {
 
     @Transactional
     public void logout(String refreshTokenValue) {
-        refreshTokenRepository.findByTokenAndRevokedFalse(refreshTokenValue)
+        var tokenHash = hashToken(refreshTokenValue);
+        refreshTokenRepository.findByTokenAndRevokedFalse(tokenHash)
                 .ifPresent(token -> {
                     token.setRevoked(true);
                     refreshTokenRepository.save(token);
@@ -98,7 +103,7 @@ public class AuthService {
         var refreshTokenValue = jwtProvider.generateRefreshTokenValue();
 
         var refreshToken = new RefreshToken();
-        refreshToken.setToken(refreshTokenValue);
+        refreshToken.setToken(hashToken(refreshTokenValue));
         refreshToken.setUser(user);
         refreshToken.setExpiresAt(Instant.now().plusMillis(jwtProperties.refreshTokenExpiration()));
         refreshTokenRepository.save(refreshToken);
@@ -113,5 +118,15 @@ public class AuthService {
         );
 
         return new AuthResponse(accessToken, refreshTokenValue, userInfo);
+    }
+
+    private String hashToken(String token) {
+        try {
+            var digest = MessageDigest.getInstance("SHA-256");
+            var hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 }

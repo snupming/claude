@@ -3,7 +3,7 @@ export default defineEventHandler(async (event) => {
 
   if (refreshToken) {
     try {
-      await backendFetch('/api/auth/logout', {
+      await backendFetch('/api/v1/auth/logout', {
         method: 'POST',
         body: { refreshToken },
       })

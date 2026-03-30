@@ -1,4 +1,4 @@
-package com.ownpic.backend.entity;
+package com.ownpic.auth.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;
@@ -24,7 +24,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Role role = Role.FREE;
+    private UserRole role = UserRole.FREE;
 
     @Column(name = "image_quota", nullable = false)
     private int imageQuota = 50;
@@ -38,10 +38,6 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public enum Role {
-        FREE, PRO, ADMIN
-    }
-
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
@@ -53,7 +49,6 @@ public class User {
         updatedAt = Instant.now();
     }
 
-    // Getters and Setters
     public UUID getId() { return id; }
 
     public String getName() { return name; }
@@ -65,8 +60,8 @@ public class User {
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
 
     public int getImageQuota() { return imageQuota; }
     public void setImageQuota(int imageQuota) { this.imageQuota = imageQuota; }

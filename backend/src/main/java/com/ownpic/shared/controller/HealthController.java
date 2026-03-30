@@ -1,4 +1,4 @@
-package com.ownpic.backend.controller;
+package com.ownpic.shared.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,6 +1,5 @@
-package com.ownpic.backend.security;
+package com.ownpic.auth.jwt;
 
-import com.ownpic.backend.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,11 +19,9 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
         this.jwtProvider = jwtProvider;
-        this.userRepository = userRepository;
     }
 
     @Override

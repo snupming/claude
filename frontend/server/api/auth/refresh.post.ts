@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
       imageQuota: number
       imagesUsed: number
     }
-  }>('/api/auth/refresh', {
+  }>('/api/v1/auth/refresh', {
     method: 'POST',
     body: { refreshToken },
   })

@@ -1,4 +1,4 @@
-package com.ownpic.backend.dto;
+package com.ownpic.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

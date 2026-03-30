@@ -1,14 +1,15 @@
-package com.ownpic.backend.controller;
+package com.ownpic.auth.controller;
 
-import com.ownpic.backend.dto.*;
-import com.ownpic.backend.service.AuthService;
+import com.ownpic.auth.AuthService;
+import com.ownpic.auth.dto.*;
+import com.ownpic.shared.dto.ApiPaths;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping(ApiPaths.V1 + "/auth")
 public class AuthController {
 
     private final AuthService authService;
