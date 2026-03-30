@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Search,
-  Store,
   CreditCard,
   ChevronLeft,
   ChevronRight,
@@ -26,7 +25,6 @@ const mainNav = [
   { label: '대시보드', icon: LayoutDashboard, to: '/dashboard' },
   { label: '이미지 보호', icon: ShieldCheck, to: '/dashboard/protect' },
   { label: '도용 탐지', icon: Search, to: '/dashboard/detect' },
-  { label: '스토어', icon: Store, to: '/dashboard/stores' },
 ]
 
 /* 현재 라우트와 매칭 */

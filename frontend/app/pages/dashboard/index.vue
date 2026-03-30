@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { Shield, Images, ScanLine, TrendingUp } from 'lucide-vue-next'
+import { Shield, Images, ScanLine, TrendingUp, Store, Plus, ExternalLink } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 definePageMeta({
   layout: 'dashboard',
@@ -8,9 +15,9 @@ definePageMeta({
 
 const { user } = useAuth()
 const isLoading = ref(true)
+const showStoreDialog = ref(false)
 
 onMounted(() => {
-  // 유저 데이터 로딩 시뮬레이션 (추후 실제 API 호출로 대체)
   setTimeout(() => {
     isLoading.value = false
   }, 600)
@@ -40,6 +47,58 @@ const statCards = computed(() => [
     bg: 'bg-warning/10',
   },
 ])
+
+interface Platform {
+  id: string
+  name: string
+  description: string
+  icon: string
+  color: string
+  available: boolean
+}
+
+const platforms: Platform[] = [
+  {
+    id: 'naver',
+    name: '네이버 스마트스토어',
+    description: '네이버 스마트스토어 상품 이미지를 자동 보호합니다',
+    icon: 'N',
+    color: 'bg-[#03C75A]',
+    available: true,
+  },
+  {
+    id: 'coupang',
+    name: '쿠팡',
+    description: '쿠팡 마켓플레이스 상품 이미지를 자동 보호합니다',
+    icon: 'C',
+    color: 'bg-[#E31937]',
+    available: true,
+  },
+  {
+    id: 'gmarket',
+    name: 'G마켓',
+    description: 'G마켓 셀러 이미지를 자동으로 모니터링합니다',
+    icon: 'G',
+    color: 'bg-[#00A650]',
+    available: false,
+  },
+  {
+    id: '11st',
+    name: '11번가',
+    description: '11번가 상품 이미지를 연동하여 보호합니다',
+    icon: '11',
+    color: 'bg-[#FF0000]',
+    available: false,
+  },
+]
+
+const connectedStores = ref<string[]>([])
+
+function connectStore(platformId: string) {
+  // 추후 실제 OAuth 연동으로 대체
+  connectedStores.value.push(platformId)
+  showStoreDialog.value = false
+}
 </script>
 
 <template>
@@ -125,6 +184,131 @@ const statCards = computed(() => [
           </template>
         </CardContent>
       </Card>
+
+      <!-- Store Integration -->
+      <Card>
+        <CardHeader>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+                <Store class="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <CardTitle>스토어 연동</CardTitle>
+                <CardDescription>이커머스 스토어를 연동하여 자동으로 보호합니다</CardDescription>
+              </div>
+            </div>
+            <Button
+              v-if="!isLoading"
+              size="sm"
+              variant="outline"
+              class="gap-1.5"
+              @click="showStoreDialog = true"
+            >
+              <Plus class="h-4 w-4" />
+              연동하기
+            </Button>
+            <Skeleton v-else class="h-9 w-24 rounded-md" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <template v-if="isLoading">
+            <div class="space-y-3">
+              <div v-for="i in 2" :key="i" class="flex items-center gap-4 rounded-lg border border-border p-4">
+                <Skeleton class="h-10 w-10 rounded-lg" />
+                <div class="flex-1 space-y-2">
+                  <Skeleton class="h-4 w-32" />
+                  <Skeleton class="h-3 w-48" />
+                </div>
+                <Skeleton class="h-6 w-16 rounded-full" />
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <!-- 연동된 스토어 목록 -->
+            <div v-if="connectedStores.length > 0" class="space-y-3">
+              <div
+                v-for="storeId in connectedStores"
+                :key="storeId"
+                class="flex items-center gap-4 rounded-lg border border-border p-4"
+              >
+                <div
+                  class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white"
+                  :class="platforms.find(p => p.id === storeId)?.color"
+                >
+                  {{ platforms.find(p => p.id === storeId)?.icon }}
+                </div>
+                <div class="flex-1">
+                  <p class="text-sm font-medium">{{ platforms.find(p => p.id === storeId)?.name }}</p>
+                  <p class="text-xs text-muted-foreground">연동됨</p>
+                </div>
+                <Badge variant="secondary" class="text-green-600">활성</Badge>
+              </div>
+            </div>
+
+            <!-- 빈 상태 -->
+            <div v-else class="flex flex-col items-center py-8 text-center">
+              <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                <Store class="h-6 w-6 text-muted-foreground/50" />
+              </div>
+              <p class="mt-3 text-sm font-medium">연동된 스토어가 없습니다</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                스토어를 연동하면 상품 이미지가 자동으로 보호됩니다
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                class="mt-4 gap-1.5"
+                @click="showStoreDialog = true"
+              >
+                <Plus class="h-4 w-4" />
+                스토어 연동하기
+              </Button>
+            </div>
+          </template>
+        </CardContent>
+      </Card>
     </div>
   </div>
+
+  <!-- Platform Selection Dialog -->
+  <Dialog v-model:open="showStoreDialog">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>스토어 연동</DialogTitle>
+        <DialogDescription>연동할 이커머스 플랫폼을 선택하세요</DialogDescription>
+      </DialogHeader>
+
+      <div class="mt-2 space-y-2">
+        <button
+          v-for="platform in platforms"
+          :key="platform.id"
+          class="flex w-full items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors"
+          :class="[
+            platform.available && !connectedStores.includes(platform.id)
+              ? 'hover:border-primary/30 hover:bg-accent/30 cursor-pointer'
+              : 'opacity-50 cursor-not-allowed',
+          ]"
+          :disabled="!platform.available || connectedStores.includes(platform.id)"
+          @click="platform.available && !connectedStores.includes(platform.id) && connectStore(platform.id)"
+        >
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+            :class="platform.color"
+          >
+            {{ platform.icon }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="text-sm font-medium">{{ platform.name }}</p>
+              <Badge v-if="connectedStores.includes(platform.id)" variant="secondary" class="text-xs">연동됨</Badge>
+              <Badge v-else-if="!platform.available" variant="outline" class="text-xs">준비 중</Badge>
+            </div>
+            <p class="mt-0.5 text-xs text-muted-foreground">{{ platform.description }}</p>
+          </div>
+          <ExternalLink v-if="platform.available && !connectedStores.includes(platform.id)" class="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>
