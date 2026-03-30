@@ -23,6 +23,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   mvc:
     problemdetails:
       enabled: true
@@ -35,5 +40,7 @@ ownpic:
     secret: ${JWT_SECRET:ownpic-dev-secret-key-must-be-at-least-256-bits-long-for-hs256}
     access-token-expiration: ${JWT_ACCESS_EXPIRATION:900000}
     refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  storage:
+    base-path: ${STORAGE_PATH:./uploads}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}

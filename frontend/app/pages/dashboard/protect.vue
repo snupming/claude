@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ShieldCheck, Upload, Image as ImageIcon, Filter, RefreshCw } from 'lucide-vue-next'
+import { ShieldCheck, Upload, Image as ImageIcon, CheckCircle2, XCircle, Loader2, File as FileIcon } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { useImageUpload } from '@/composables/useImageUpload'
 
 definePageMeta({
   layout: 'dashboard',
@@ -36,6 +38,12 @@ const totalPages = ref(0)
 const currentPage = ref(0)
 const filterStatus = ref<string | null>(null)
 
+// Upload Sheet
+const showUploadSheet = ref(false)
+const isDragOver = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const { queue, isUploading, hasFiles, pendingCount, successCount, addFiles, removeFile, uploadAll, clear } = useImageUpload()
+
 async function fetchImages() {
   isLoading.value = true
   try {
@@ -50,7 +58,6 @@ async function fetchImages() {
     totalElements.value = data.totalElements
     totalPages.value = data.totalPages
   } catch {
-    // API 미연결 시 빈 상태 유지
     images.value = []
   } finally {
     isLoading.value = false
@@ -75,6 +82,46 @@ function formatDate(dateStr: string) {
     month: 'short',
     day: 'numeric',
   })
+}
+
+function openUploadSheet() {
+  showUploadSheet.value = true
+}
+
+function onSheetClose() {
+  if (successCount.value > 0) {
+    fetchImages()
+  }
+  clear()
+}
+
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = true
+}
+
+function onDragLeave() {
+  isDragOver.value = false
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = false
+  if (e.dataTransfer?.files) {
+    addFiles(e.dataTransfer.files)
+  }
+}
+
+function onFileSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files) {
+    addFiles(input.files)
+    input.value = ''
+  }
+}
+
+async function handleUploadAll() {
+  await uploadAll()
 }
 
 const statusLabels: Record<string, { label: string; class: string }> = {
@@ -105,7 +152,7 @@ onMounted(fetchImages)
           상품 이미지에 비가시 워터마크를 삽입하여 보호합니다
         </p>
       </div>
-      <Button class="gap-2">
+      <Button class="gap-2" @click="openUploadSheet">
         <Upload class="h-4 w-4" />
         이미지 업로드
       </Button>
@@ -168,12 +215,10 @@ onMounted(fetchImages)
             :key="image.id"
             class="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
           >
-            <!-- Thumbnail placeholder -->
             <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-muted">
               <ImageIcon class="h-6 w-6 text-muted-foreground/50" />
             </div>
 
-            <!-- Info -->
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ image.name }}</p>
               <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
@@ -184,7 +229,6 @@ onMounted(fetchImages)
               </div>
             </div>
 
-            <!-- Status Badge -->
             <Badge
               variant="secondary"
               :class="statusLabels[image.status]?.class"
@@ -230,7 +274,7 @@ onMounted(fetchImages)
               상품 이미지를 업로드하거나 스토어를 연동하면<br>AI가 자동으로 비가시 워터마크를 삽입합니다
             </p>
             <div class="mt-6 flex gap-3">
-              <Button class="gap-2">
+              <Button class="gap-2" @click="openUploadSheet">
                 <Upload class="h-4 w-4" />
                 이미지 업로드
               </Button>
@@ -244,5 +288,98 @@ onMounted(fetchImages)
         </Card>
       </template>
     </div>
+
+    <!-- Upload Sheet -->
+    <Sheet v-model:open="showUploadSheet" @update:open="(v: boolean) => { if (!v) onSheetClose() }">
+      <SheetContent side="right" class="flex flex-col overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>이미지 업로드</SheetTitle>
+          <SheetDescription>
+            JPEG, PNG, WebP 이미지를 업로드하세요. (최대 10MB)
+          </SheetDescription>
+        </SheetHeader>
+
+        <!-- Drag & Drop Zone -->
+        <div
+          class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
+          :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
+          @dragover="onDragOver"
+          @dragleave="onDragLeave"
+          @drop="onDrop"
+        >
+          <Upload class="h-8 w-8 text-muted-foreground/50" />
+          <p class="mt-3 text-sm text-muted-foreground">
+            이미지를 여기에 드래그하거나
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            class="mt-2"
+            @click="fileInputRef?.click()"
+          >
+            파일 선택
+          </Button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="onFileSelect"
+          >
+        </div>
+
+        <!-- Upload Queue -->
+        <div v-if="hasFiles" class="mt-4 flex-1 space-y-2 overflow-y-auto">
+          <div
+            v-for="item in queue"
+            :key="item.id"
+            class="flex items-center gap-3 rounded-lg border border-border p-3"
+          >
+            <FileIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm">{{ item.file.name }}</p>
+              <p class="text-xs text-muted-foreground">{{ formatFileSize(item.file.size) }}</p>
+            </div>
+            <div class="shrink-0">
+              <Loader2 v-if="item.status === 'uploading'" class="h-4 w-4 animate-spin text-primary" />
+              <CheckCircle2 v-else-if="item.status === 'success'" class="h-4 w-4 text-green-500" />
+              <div v-else-if="item.status === 'error'" class="flex items-center gap-1">
+                <XCircle class="h-4 w-4 text-destructive" />
+              </div>
+              <button
+                v-else
+                class="text-xs text-muted-foreground hover:text-foreground"
+                @click="removeFile(item.id)"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error messages -->
+        <div v-for="item in queue.filter(i => i.error)" :key="'err-' + item.id" class="mt-1">
+          <p class="text-xs text-destructive">{{ item.file.name }}: {{ item.error }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div v-if="hasFiles" class="mt-4 flex items-center justify-between border-t border-border pt-4">
+          <p class="text-sm text-muted-foreground">
+            <template v-if="successCount > 0">{{ successCount }}개 완료</template>
+            <template v-else>{{ pendingCount }}개 대기 중</template>
+          </p>
+          <div class="flex gap-2">
+            <Button variant="outline" size="sm" @click="clear" :disabled="isUploading">
+              초기화
+            </Button>
+            <Button size="sm" :disabled="isUploading || pendingCount === 0" @click="handleUploadAll">
+              <Loader2 v-if="isUploading" class="mr-2 h-3 w-3 animate-spin" />
+              업로드 시작
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   </div>
 </template>
