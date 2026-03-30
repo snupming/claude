@@ -4,6 +4,8 @@ import java.util.UUID;
 
 public interface ImageStoragePort {
     String store(UUID userId, Long imageId, byte[] imageBytes, String extension);
+    String save(UUID userId, byte[] imageBytes);
     byte[] load(String path);
     void delete(String path);
+    void deleteQuietly(String path);
 }

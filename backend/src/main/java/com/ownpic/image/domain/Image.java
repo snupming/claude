@@ -43,8 +43,17 @@ public class Image {
     @Column(columnDefinition = "bytea")
     private byte[] embedding;
 
+    @Column(name = "embedding_dino", columnDefinition = "bytea")
+    private byte[] embeddingDino;
+
     @Column(name = "watermark_payload", length = 200)
     private String watermarkPayload;
+
+    @Column(name = "watermark_width")
+    private Integer watermarkWidth;
+
+    @Column(name = "watermark_height")
+    private Integer watermarkHeight;
 
     @Column(length = 500)
     private String keywords;
@@ -103,8 +112,17 @@ public class Image {
     public byte[] getEmbedding() { return embedding; }
     public void setEmbedding(byte[] embedding) { this.embedding = embedding; }
 
+    public byte[] getEmbeddingDino() { return embeddingDino; }
+    public void setEmbeddingDino(byte[] embeddingDino) { this.embeddingDino = embeddingDino; }
+
     public String getWatermarkPayload() { return watermarkPayload; }
     public void setWatermarkPayload(String watermarkPayload) { this.watermarkPayload = watermarkPayload; }
+
+    public Integer getWatermarkWidth() { return watermarkWidth; }
+    public void setWatermarkWidth(Integer watermarkWidth) { this.watermarkWidth = watermarkWidth; }
+
+    public Integer getWatermarkHeight() { return watermarkHeight; }
+    public void setWatermarkHeight(Integer watermarkHeight) { this.watermarkHeight = watermarkHeight; }
 
     public String getKeywords() { return keywords; }
     public void setKeywords(String keywords) { this.keywords = keywords; }

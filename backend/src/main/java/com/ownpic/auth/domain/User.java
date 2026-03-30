@@ -26,6 +26,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserRole role = UserRole.FREE;
 
+    @Column(name = "internal_id", unique = true, updatable = false, insertable = false)
+    private Long internalId;
+
     @Column(name = "image_quota", nullable = false)
     private int imageQuota = 50;
 
@@ -68,6 +71,8 @@ public class User {
 
     public int getImagesUsed() { return imagesUsed; }
     public void setImagesUsed(int imagesUsed) { this.imagesUsed = imagesUsed; }
+
+    public Long getInternalId() { return internalId; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

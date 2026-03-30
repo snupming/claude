@@ -44,6 +44,14 @@ public class AuthService {
         this.jwtProperties = jwtProperties;
     }
 
+    @Transactional(readOnly = true)
+    public Long resolveInternalId(UUID publicId) {
+        return userRepository.findById(publicId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "User not found"))
+                .getInternalId();
+    }
+
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.email())) {

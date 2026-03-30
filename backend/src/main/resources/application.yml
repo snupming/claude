@@ -36,6 +36,13 @@ server:
   port: ${SERVER_PORT:8080}
 
 ownpic:
+  trustmark:
+    encoder-path: ${TRUSTMARK_ENCODER_PATH:}
+    decoder-path: ${TRUSTMARK_DECODER_PATH:}
+  sscd:
+    model-path: ${SSCD_MODEL_PATH:}
+  dinov2:
+    model-path: ${DINOV2_MODEL_PATH:}
   jwt:
     secret: ${JWT_SECRET:ownpic-dev-secret-key-must-be-at-least-256-bits-long-for-hs256}
     access-token-expiration: ${JWT_ACCESS_EXPIRATION:900000}

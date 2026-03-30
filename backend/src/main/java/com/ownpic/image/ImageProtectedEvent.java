@@ -1,3 +1,5 @@
 package com.ownpic.image;
 
-public record ImageProtectedEvent(Long imageId) {}
+import java.util.UUID;
+
+public record ImageProtectedEvent(Long imageId, UUID userId, String gcsPath) {}
