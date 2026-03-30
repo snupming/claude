@@ -1,15 +1,17 @@
 import type { H3Event } from 'h3'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
-
 interface BackendRequestOptions {
   method?: string
   body?: unknown
   headers?: Record<string, string>
 }
 
+function getBackendUrl(): string {
+  return useRuntimeConfig().backendUrl as string
+}
+
 export async function backendFetch<T>(path: string, options: BackendRequestOptions = {}): Promise<T> {
-  const url = `${BACKEND_URL}${path}`
+  const url = `${getBackendUrl()}${path}`
 
   const response = await fetch(url, {
     method: options.method || 'GET',
@@ -46,7 +48,7 @@ interface AuthTokens {
 }
 
 export function setAuthCookies(event: H3Event, tokens: AuthTokens) {
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isProduction = !import.meta.dev
 
   setCookie(event, 'access_token', tokens.accessToken, {
     httpOnly: true,

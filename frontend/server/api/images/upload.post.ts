@@ -1,5 +1,3 @@
-import { getAccessTokenFromCookie } from '~/server/utils/backend'
-
 export default defineEventHandler(async (event) => {
   const accessToken = getAccessTokenFromCookie(event)
   if (!accessToken) {
@@ -11,7 +9,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: '파일이 필요합니다.' })
   }
 
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
+  const backendUrl = useRuntimeConfig().backendUrl as string
 
   // Rebuild FormData for backend
   const body = new FormData()

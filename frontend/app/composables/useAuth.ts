@@ -71,7 +71,7 @@ export function useAuth() {
 
   async function fetchUser() {
     try {
-      const data = await $fetch('/api/auth/me')
+      const data = await $fetch<{ user: UserInfo }>('/api/auth/me')
       if (data?.user) {
         user.value = data.user
       }
