@@ -40,7 +40,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // ONNX Runtime (ML models)
-    implementation("com.microsoft.onnxruntime:onnxruntime:1.18.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.22.0")
 
     // Dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
