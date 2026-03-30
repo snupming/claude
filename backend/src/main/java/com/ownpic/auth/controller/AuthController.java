@@ -1,7 +1,11 @@
 package com.ownpic.auth.controller;
 
 import com.ownpic.auth.AuthService;
-import com.ownpic.auth.dto.*;
+import com.ownpic.auth.dto.AuthResponse;
+import com.ownpic.auth.dto.LoginRequest;
+import com.ownpic.auth.dto.RefreshRequest;
+import com.ownpic.auth.dto.SignupRequest;
+import com.ownpic.auth.dto.SignupResponse;
 import com.ownpic.shared.dto.ApiPaths;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,7 +23,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
+    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
         var response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

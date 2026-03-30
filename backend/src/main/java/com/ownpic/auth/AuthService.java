@@ -7,13 +7,15 @@ import com.ownpic.auth.domain.UserRepository;
 import com.ownpic.auth.dto.AuthResponse;
 import com.ownpic.auth.dto.LoginRequest;
 import com.ownpic.auth.dto.SignupRequest;
+import com.ownpic.auth.dto.SignupResponse;
+import com.ownpic.auth.exception.AuthenticationFailedException;
+import com.ownpic.auth.exception.DuplicateEmailException;
+import com.ownpic.auth.exception.InvalidTokenException;
 import com.ownpic.auth.jwt.JwtProperties;
 import com.ownpic.auth.jwt.JwtProvider;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -43,9 +45,9 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 이메일입니다.");
+            throw new DuplicateEmailException();
         }
 
         var user = new User();
@@ -54,16 +56,21 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.password()));
         userRepository.save(user);
 
-        return createAuthResponse(user);
+        return new SignupResponse(
+                user.getId().toString(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole().name()
+        );
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
         var user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(AuthenticationFailedException::new);
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다.");
+            throw new AuthenticationFailedException();
         }
 
         return createAuthResponse(user);
@@ -73,12 +80,12 @@ public class AuthService {
     public AuthResponse refresh(String refreshTokenValue) {
         var tokenHash = hashToken(refreshTokenValue);
         var refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(tokenHash)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."));
+                .orElseThrow(() -> new InvalidTokenException("유효하지 않은 리프레시 토큰입니다."));
 
         if (refreshToken.isExpired()) {
             refreshToken.setRevoked(true);
             refreshTokenRepository.save(refreshToken);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "만료된 리프레시 토큰입니다.");
+            throw new InvalidTokenException("만료된 리프레시 토큰입니다.");
         }
 
         refreshToken.setRevoked(true);
