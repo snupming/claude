@@ -6,9 +6,9 @@ spring:
       enabled: true
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:}
+    url: ${DB_URL:jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com/postgres}
+    username: ${DB_USERNAME:postgres.oyauhpbtobbwoilbvcxh}
+    password: ${DB_PASSWORD:dnjzmaos88*C}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -37,12 +37,12 @@ server:
 
 ownpic:
   trustmark:
-    encoder-path: ${TRUSTMARK_ENCODER_PATH:}
-    decoder-path: ${TRUSTMARK_DECODER_PATH:}
+    encoder-path: ${TRUSTMARK_ENCODER_PATH:./models/trustmark_encoder_Q.onnx}
+    decoder-path: ${TRUSTMARK_DECODER_PATH:./models/trustmark_decoder_Q.onnx}
   sscd:
-    model-path: ${SSCD_MODEL_PATH:}
+    model-path: ${SSCD_MODEL_PATH:./models/sscd.onnx}
   dinov2:
-    model-path: ${DINOV2_MODEL_PATH:}
+    model-path: ${DINOV2_MODEL_PATH:./models/dinov2_vits14_cls.onnx}
   jwt:
     secret: ${JWT_SECRET:ownpic-dev-secret-key-must-be-at-least-256-bits-long-for-hs256}
     access-token-expiration: ${JWT_ACCESS_EXPIRATION:900000}
