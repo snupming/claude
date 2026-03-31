@@ -4,6 +4,7 @@ import com.ownpic.detection.domain.*;
 import com.ownpic.detection.dto.DetectionResultResponse;
 import com.ownpic.detection.dto.DetectionScanDetailResponse;
 import com.ownpic.detection.dto.DetectionScanResponse;
+import com.ownpic.detection.dto.InternetDetectionResultResponse;
 import com.ownpic.detection.port.SimilarImageSearchPort;
 import com.ownpic.detection.port.SimilarImageSearchPort.BatchResult;
 import com.ownpic.detection.port.SimilarImageSearchPort.ImageEmbedding;
@@ -36,15 +37,18 @@ public class DetectionService {
 
     private final DetectionScanRepository scanRepository;
     private final DetectionResultRepository resultRepository;
+    private final InternetDetectionResultRepository internetResultRepository;
     private final ImageRepository imageRepository;
     private final SimilarImageSearchPort searchPort;
 
     public DetectionService(DetectionScanRepository scanRepository,
                             DetectionResultRepository resultRepository,
+                            InternetDetectionResultRepository internetResultRepository,
                             ImageRepository imageRepository,
                             SimilarImageSearchPort searchPort) {
         this.scanRepository = scanRepository;
         this.resultRepository = resultRepository;
+        this.internetResultRepository = internetResultRepository;
         this.imageRepository = imageRepository;
         this.searchPort = searchPort;
     }
@@ -200,7 +204,10 @@ public class DetectionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "스캔을 찾을 수 없습니다."));
         var results = resultRepository.findByScanIdOrderByCreatedAt(scanId)
                 .stream().map(DetectionResultResponse::from).toList();
-        return new DetectionScanDetailResponse(DetectionScanResponse.from(scan), results);
+        var internetResults = internetResultRepository.findByScanIdOrderByCreatedAt(scanId)
+                .stream().map(InternetDetectionResultResponse::from).toList();
+        return new DetectionScanDetailResponse(
+                DetectionScanResponse.from(scan), results, internetResults);
     }
 
     private static float[] bytesToFloats(byte[] bytes) {

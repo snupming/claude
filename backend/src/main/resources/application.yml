@@ -49,5 +49,8 @@ ownpic:
     refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
   storage:
     base-path: ${STORAGE_PATH:./uploads}
+  naver:
+    client-id: ${NAVER_CLIENT_ID:}
+    client-secret: ${NAVER_CLIENT_SECRET:}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}

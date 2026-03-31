@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight } from 'lucide-vue-next'
+import { Search, Globe, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, ExternalLink } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -13,7 +13,7 @@ definePageMeta({
 const {
   activeScan,
   isScanning,
-  startScan,
+  startInternetScan,
   fetchScans,
   fetchScanDetail,
   resumeIfActive,
@@ -43,7 +43,7 @@ async function loadData() {
 async function handleStartScan() {
   isStarting.value = true
   try {
-    await startScan()
+    await startInternetScan()
   } catch {
     // ignore
   } finally {
@@ -62,7 +62,6 @@ async function viewDetail(scan: ScanInfo) {
 
 watch(activeScan, (scan) => {
   if (scan && (scan.status === 'COMPLETED' || scan.status === 'FAILED')) {
-    // Refresh history when scan finishes
     fetchScans().then(page => {
       scanHistory.value = page.content
     })
@@ -89,6 +88,24 @@ function statusInfo(status: string) {
   }
 }
 
+function scanTypeLabel(scanType: string) {
+  return scanType === 'INTERNET' ? '인터넷 탐지' : 'DB 탐지'
+}
+
+function similarityPercent(value: number | null) {
+  if (value == null) return '-'
+  return (value * 100).toFixed(1) + '%'
+}
+
+function domainFromUrl(url: string | null) {
+  if (!url) return ''
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
 onMounted(loadData)
 onUnmounted(stopPolling)
 </script>
@@ -103,7 +120,7 @@ onUnmounted(stopPolling)
     <template v-else>
       <h1 class="text-2xl font-bold tracking-tight">도용 탐지</h1>
       <p class="mt-1 text-sm text-muted-foreground">
-        인덱싱된 이미지를 기반으로 유사 이미지를 탐지합니다
+        인덱싱된 이미지를 인터넷에서 검색하여 도용 여부를 탐지합니다
       </p>
     </template>
 
@@ -112,7 +129,7 @@ onUnmounted(stopPolling)
       <CardContent class="py-8">
         <div class="flex flex-col items-center text-center">
           <Loader2 class="h-10 w-10 animate-spin text-primary" />
-          <h3 class="mt-4 text-lg font-semibold">스캔 진행 중...</h3>
+          <h3 class="mt-4 text-lg font-semibold">인터넷 스캔 진행 중...</h3>
           <p class="mt-1 text-sm text-muted-foreground">
             {{ activeScan.scannedImages }} / {{ activeScan.totalImages }} 이미지 검사 완료
           </p>
@@ -170,7 +187,7 @@ onUnmounted(stopPolling)
       </CardContent>
     </Card>
 
-    <!-- Start Scan / Empty -->
+    <!-- Start Scan -->
     <Card v-if="!isScanning && !activeScan" class="mt-8">
       <CardContent class="flex flex-col items-center py-16">
         <template v-if="isLoading">
@@ -181,16 +198,16 @@ onUnmounted(stopPolling)
         </template>
         <template v-else>
           <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-            <ScanLine class="h-7 w-7 text-primary" />
+            <Globe class="h-7 w-7 text-primary" />
           </div>
-          <h3 class="mt-4 text-lg font-semibold">도용 탐지를 시작하세요</h3>
-          <p class="mt-1.5 text-center text-sm text-muted-foreground">
-            보호된 이미지를 기반으로 유사 이미지를 탐지합니다
+          <h3 class="mt-4 text-lg font-semibold">인터넷 도용 탐지</h3>
+          <p class="mt-1.5 max-w-md text-center text-sm text-muted-foreground">
+            보호된 이미지의 키워드로 네이버를 검색하고, 발견된 이미지와 SSCD/DINOv2로 유사도를 비교합니다
           </p>
           <Button class="mt-6 gap-2" :disabled="isStarting" @click="handleStartScan">
             <Loader2 v-if="isStarting" class="h-4 w-4 animate-spin" />
             <Search v-else class="h-4 w-4" />
-            탐지 시작
+            인터넷 탐지 시작
           </Button>
         </template>
       </CardContent>
@@ -207,11 +224,13 @@ onUnmounted(stopPolling)
           @click="viewDetail(scan)"
         >
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-            <Clock class="h-5 w-5 text-muted-foreground" />
+            <Globe v-if="scan.scanType === 'INTERNET'" class="h-5 w-5 text-muted-foreground" />
+            <Clock v-else class="h-5 w-5 text-muted-foreground" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <p class="text-sm font-medium">스캔 #{{ scan.id }}</p>
+              <Badge variant="outline" class="text-xs">{{ scanTypeLabel(scan.scanType) }}</Badge>
               <Badge variant="secondary" :class="statusInfo(scan.status).class">
                 {{ statusInfo(scan.status).label }}
               </Badge>
@@ -233,49 +252,115 @@ onUnmounted(stopPolling)
         <DialogHeader>
           <DialogTitle>스캔 상세 결과</DialogTitle>
           <DialogDescription v-if="selectedDetail">
-            {{ selectedDetail.scan.totalImages }}개 이미지 스캔,
-            {{ selectedDetail.results.length }}건 도용 의심
+            {{ selectedDetail.scan.totalImages }}개 이미지 스캔
+            <template v-if="selectedDetail.scan.scanType === 'INTERNET'">
+              (인터넷 탐지) — {{ selectedDetail.internetResults.length }}건 도용 의심
+            </template>
+            <template v-else>
+              — {{ selectedDetail.results.length }}건 도용 의심
+            </template>
           </DialogDescription>
         </DialogHeader>
 
         <div v-if="selectedDetail" class="mt-4">
-          <!-- No results -->
-          <div v-if="selectedDetail.results.length === 0" class="flex flex-col items-center py-8 text-center">
-            <CheckCircle2 class="h-10 w-10 text-green-500" />
-            <p class="mt-3 font-medium">도용이 감지되지 않았습니다</p>
-            <p class="mt-1 text-sm text-muted-foreground">모든 이미지가 안전합니다</p>
-          </div>
+          <!-- Internet Results -->
+          <template v-if="selectedDetail.scan.scanType === 'INTERNET'">
+            <div v-if="selectedDetail.internetResults.length === 0" class="flex flex-col items-center py-8 text-center">
+              <CheckCircle2 class="h-10 w-10 text-green-500" />
+              <p class="mt-3 font-medium">도용이 감지되지 않았습니다</p>
+              <p class="mt-1 text-sm text-muted-foreground">인터넷에서 유사 이미지를 찾지 못했습니다</p>
+            </div>
 
-          <!-- Results table -->
-          <div v-else class="space-y-3">
-            <div
-              v-for="result in selectedDetail.results"
-              :key="result.id"
-              class="rounded-lg border border-border p-4"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <AlertTriangle class="h-4 w-4 text-destructive" />
-                  <span class="text-sm font-medium">도용 의심</span>
+            <div v-else class="space-y-3">
+              <div
+                v-for="result in selectedDetail.internetResults"
+                :key="result.id"
+                class="rounded-lg border border-border p-4"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <AlertTriangle class="h-4 w-4 text-destructive" />
+                    <span class="text-sm font-medium">도용 의심</span>
+                    <Badge variant="outline" class="text-xs">{{ result.searchEngine }}</Badge>
+                  </div>
+                  <Badge variant="destructive">{{ result.judgment }}</Badge>
                 </div>
-                <Badge variant="destructive">{{ result.judgment }}</Badge>
-              </div>
-              <div class="mt-3 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-                <div>
-                  <p class="font-medium text-foreground">내 이미지</p>
-                  <p>ID: {{ result.sourceImageId }}</p>
+
+                <div class="mt-3 space-y-2">
+                  <div class="flex items-start gap-2 text-sm">
+                    <img
+                      :src="result.foundImageUrl"
+                      :alt="result.sourcePageTitle || '발견된 이미지'"
+                      class="h-16 w-16 shrink-0 rounded-md border object-cover"
+                      loading="lazy"
+                      @error="($event.target as HTMLImageElement).style.display = 'none'"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <p v-if="result.sourcePageTitle" class="truncate text-sm font-medium">
+                        {{ result.sourcePageTitle }}
+                      </p>
+                      <p v-if="result.sourcePageUrl" class="truncate text-xs text-muted-foreground">
+                        {{ domainFromUrl(result.sourcePageUrl) }}
+                      </p>
+                      <a
+                        v-if="result.sourcePageUrl"
+                        :href="result.sourcePageUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        출처 페이지 열기 <ExternalLink class="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p class="font-medium text-foreground">매칭 이미지</p>
-                  <p>ID: {{ result.matchedImageId }}</p>
+
+                <div class="mt-2 flex gap-4 text-xs text-muted-foreground">
+                  <span>SSCD: {{ similarityPercent(result.sscdSimilarity) }}</span>
+                  <span>DINO: {{ similarityPercent(result.dinoSimilarity) }}</span>
                 </div>
-              </div>
-              <div class="mt-2 flex gap-4 text-xs text-muted-foreground">
-                <span v-if="result.sscdSimilarity">SSCD: {{ (result.sscdSimilarity * 100).toFixed(1) }}%</span>
-                <span v-if="result.dinoSimilarity">DINO: {{ (result.dinoSimilarity * 100).toFixed(1) }}%</span>
               </div>
             </div>
-          </div>
+          </template>
+
+          <!-- Internal Results (legacy) -->
+          <template v-else>
+            <div v-if="selectedDetail.results.length === 0" class="flex flex-col items-center py-8 text-center">
+              <CheckCircle2 class="h-10 w-10 text-green-500" />
+              <p class="mt-3 font-medium">도용이 감지되지 않았습니다</p>
+              <p class="mt-1 text-sm text-muted-foreground">모든 이미지가 안전합니다</p>
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="result in selectedDetail.results"
+                :key="result.id"
+                class="rounded-lg border border-border p-4"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <AlertTriangle class="h-4 w-4 text-destructive" />
+                    <span class="text-sm font-medium">도용 의심</span>
+                  </div>
+                  <Badge variant="destructive">{{ result.judgment }}</Badge>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+                  <div>
+                    <p class="font-medium text-foreground">내 이미지</p>
+                    <p>ID: {{ result.sourceImageId }}</p>
+                  </div>
+                  <div>
+                    <p class="font-medium text-foreground">매칭 이미지</p>
+                    <p>ID: {{ result.matchedImageId }}</p>
+                  </div>
+                </div>
+                <div class="mt-2 flex gap-4 text-xs text-muted-foreground">
+                  <span>SSCD: {{ similarityPercent(result.sscdSimilarity) }}</span>
+                  <span>DINO: {{ similarityPercent(result.dinoSimilarity) }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </DialogContent>
     </Dialog>

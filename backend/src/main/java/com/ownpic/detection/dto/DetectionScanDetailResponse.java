@@ -4,5 +4,6 @@ import java.util.List;
 
 public record DetectionScanDetailResponse(
         DetectionScanResponse scan,
-        List<DetectionResultResponse> results
+        List<DetectionResultResponse> results,
+        List<InternetDetectionResultResponse> internetResults
 ) {}

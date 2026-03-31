@@ -1,6 +1,7 @@
 package com.ownpic.detection.controller;
 
 import com.ownpic.detection.DetectionService;
+import com.ownpic.detection.InternetDetectionService;
 import com.ownpic.detection.dto.DetectionScanDetailResponse;
 import com.ownpic.detection.dto.DetectionScanResponse;
 import com.ownpic.shared.dto.ApiPaths;
@@ -18,9 +19,20 @@ import java.util.UUID;
 public class DetectionController {
 
     private final DetectionService detectionService;
+    private final InternetDetectionService internetDetectionService;
 
-    public DetectionController(DetectionService detectionService) {
+    public DetectionController(DetectionService detectionService,
+                               InternetDetectionService internetDetectionService) {
         this.detectionService = detectionService;
+        this.internetDetectionService = internetDetectionService;
+    }
+
+    @PostMapping("/internet-scan")
+    public ResponseEntity<DetectionScanResponse> startInternetScan(
+            @AuthenticationPrincipal UUID userId
+    ) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(internetDetectionService.startInternetScan(userId));
     }
 
     @PostMapping("/scan")

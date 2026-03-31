@@ -1,6 +1,7 @@
 export interface ScanInfo {
   id: number
   status: string
+  scanType: 'INTERNAL' | 'INTERNET'
   totalImages: number
   scannedImages: number
   matchesFound: number
@@ -20,9 +21,23 @@ export interface DetectionResult {
   createdAt: string
 }
 
+export interface InternetDetectionResult {
+  id: number
+  sourceImageId: number
+  foundImageUrl: string
+  sourcePageUrl: string | null
+  sourcePageTitle: string | null
+  sscdSimilarity: number | null
+  dinoSimilarity: number | null
+  judgment: string
+  searchEngine: string
+  createdAt: string
+}
+
 export interface ScanDetail {
   scan: ScanInfo
   results: DetectionResult[]
+  internetResults: InternetDetectionResult[]
 }
 
 export interface ScansPage {
@@ -42,6 +57,13 @@ export function useDetection() {
 
   async function startScan(): Promise<ScanInfo> {
     const scan = await $fetch<ScanInfo>('/api/detections/scan', { method: 'POST' })
+    activeScan.value = scan
+    startPolling(scan.id)
+    return scan
+  }
+
+  async function startInternetScan(): Promise<ScanInfo> {
+    const scan = await $fetch<ScanInfo>('/api/detections/internet-scan', { method: 'POST' })
     activeScan.value = scan
     startPolling(scan.id)
     return scan
@@ -103,6 +125,7 @@ export function useDetection() {
     activeScan,
     isScanning,
     startScan,
+    startInternetScan,
     fetchScans,
     fetchScanDetail,
     resumeIfActive,

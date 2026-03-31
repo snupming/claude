@@ -30,6 +30,9 @@ public class DetectionScan {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "scan_type", nullable = false, length = 20)
+    private String scanType = "INTERNET";
+
     @Column(name = "completed_at")
     private Instant completedAt;
 
@@ -48,6 +51,8 @@ public class DetectionScan {
     public int getScannedImages() { return scannedImages; }
     public int getMatchesFound() { return matchesFound; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getScanType() { return scanType; }
+    public void setScanType(String scanType) { this.scanType = scanType; }
     public Instant getCompletedAt() { return completedAt; }
 
     public void setStatus(String status) { this.status = status; }
