@@ -4,6 +4,8 @@ import com.ownpic.auth.jwt.JwtProvider;
 import com.ownpic.detection.DetectionService;
 import com.ownpic.detection.dto.DetectionScanDetailResponse;
 import com.ownpic.detection.dto.DetectionScanResponse;
+import com.ownpic.shared.config.CorsProperties;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -27,6 +30,7 @@ class DetectionControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean DetectionService detectionService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean CorsProperties corsProperties;
 
     private final UUID userId = UUID.randomUUID();
 
@@ -34,8 +38,12 @@ class DetectionControllerTest {
         String token = "test-jwt-token";
         when(jwtProvider.validateAccessToken(token)).thenReturn(true);
         when(jwtProvider.getUserIdFromToken(token)).thenReturn(userId);
-        var claims = io.jsonwebtoken.Jwts.claims().subject(userId.toString()).add("role", "FREE").build();
+
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(userId.toString());
+        when(claims.get("role", String.class)).thenReturn("FREE");
         when(jwtProvider.parseAccessToken(token)).thenReturn(claims);
+
         return token;
     }
 

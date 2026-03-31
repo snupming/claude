@@ -14,7 +14,6 @@ import com.ownpic.auth.jwt.JwtProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,15 +33,21 @@ class AuthServiceTest {
     @Mock RefreshTokenRepository refreshTokenRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtProvider jwtProvider;
-    @Mock JwtProperties jwtProperties;
 
-    @InjectMocks AuthService authService;
+    private final JwtProperties jwtProperties = new JwtProperties(
+            "test-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm",
+            900000L, 604800000L
+    );
+
+    private AuthService authService;
 
     private UUID userId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
+        authService = new AuthService(userRepository, refreshTokenRepository,
+                passwordEncoder, jwtProvider, jwtProperties);
     }
 
     // --- signup ---
@@ -86,7 +91,6 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password123", "encoded")).thenReturn(true);
         when(jwtProvider.generateAccessToken(any(), any(), any())).thenReturn("access-token");
         when(jwtProvider.generateRefreshTokenValue()).thenReturn("refresh-value");
-        when(jwtProperties.refreshTokenExpiration()).thenReturn(604800000L);
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response = authService.login(request);
@@ -129,7 +133,6 @@ class AuthServiceTest {
         when(refreshTokenRepository.findByTokenAndRevokedFalse(anyString())).thenReturn(Optional.of(refreshToken));
         when(jwtProvider.generateAccessToken(any(), any(), any())).thenReturn("new-access");
         when(jwtProvider.generateRefreshTokenValue()).thenReturn("new-refresh");
-        when(jwtProperties.refreshTokenExpiration()).thenReturn(604800000L);
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response = authService.refresh("some-refresh-token");
