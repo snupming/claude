@@ -32,6 +32,7 @@ class DetectionServiceTest {
 
     @Mock DetectionScanRepository scanRepository;
     @Mock DetectionResultRepository resultRepository;
+    @Mock InternetDetectionResultRepository internetResultRepository;
     @Mock ImageRepository imageRepository;
     @Mock SimilarImageSearchPort searchPort;
 

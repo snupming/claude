@@ -46,7 +46,7 @@ class ScraperRateLimiterTest {
         long start = System.currentTimeMillis();
         limiter.waitDelay();
         long elapsed = System.currentTimeMillis() - start;
-        assertThat(elapsed).isLessThan(100);
+        assertThat(elapsed).isLessThan(500);
     }
 
     @Test

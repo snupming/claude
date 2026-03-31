@@ -2,6 +2,7 @@ package com.ownpic.detection.controller;
 
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
 import com.ownpic.auth.jwt.JwtProvider;
+import com.ownpic.shared.config.CorsProperties;
 import com.ownpic.detection.DetectionService;
 import com.ownpic.detection.dto.DetectionScanDetailResponse;
 import com.ownpic.detection.dto.DetectionScanResponse;
@@ -39,6 +40,7 @@ class DetectionControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean DetectionService detectionService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean CorsProperties corsProperties;
 
     private final UUID userId = UUID.randomUUID();
 

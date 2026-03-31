@@ -11,6 +11,7 @@ import com.ownpic.auth.exception.AuthenticationFailedException;
 import com.ownpic.auth.exception.DuplicateEmailException;
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
 import com.ownpic.auth.jwt.JwtProvider;
+import com.ownpic.shared.config.CorsProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -39,6 +40,7 @@ class AuthControllerTest {
     @Autowired ObjectMapper objectMapper;
     @MockitoBean AuthService authService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean CorsProperties corsProperties;
 
     @Test
     void signup_validRequest_returns201() throws Exception {
