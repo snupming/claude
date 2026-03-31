@@ -50,8 +50,8 @@ ownpic:
   storage:
     base-path: ${STORAGE_PATH:./uploads}
   naver:
-    client-id: ${NAVER_CLIENT_ID:}
-    client-secret: ${NAVER_CLIENT_SECRET:}
+    client-id: ${NAVER_CLIENT_ID:mFs16l2rir71yzSBOlXE}
+    client-secret: ${NAVER_CLIENT_SECRET:5PamyFVcE6}
   google:
     max-daily-requests: ${GOOGLE_MAX_DAILY:100}
     min-delay-ms: ${GOOGLE_MIN_DELAY:7000}
