@@ -31,7 +31,15 @@ export async function backendFetch<T>(path: string, options: BackendRequestOptio
     })
   }
 
-  return response.json() as Promise<T>
+  // 204 No Content 등 빈 응답 처리
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return undefined as T
+  }
+
+  const text = await response.text()
+  if (!text) return undefined as T
+
+  return JSON.parse(text) as T
 }
 
 export function getAccessTokenFromCookie(event: H3Event): string | undefined {
