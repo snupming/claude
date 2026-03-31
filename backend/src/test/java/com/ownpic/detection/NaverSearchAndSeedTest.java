@@ -106,28 +106,38 @@ class NaverSearchAndSeedTest {
         });
         log.info("✅ 유저 준비완료: {} (ID: {})", user.getEmail(), user.getId());
 
-        // 2. 키워드별로 네이버 검색 → 이미지 다운로드 → DB 등록
-        List<Image> seededImages = new ArrayList<>();
+        // 2. 기존 INDEXED 이미지 확인 (이전 실행에서 이미 등록된 경우 재사용)
+        List<Image> existingImages = imageRepository.findByUserIdAndStatus(user.getId(), ImageStatus.INDEXED);
+        log.info("기존 INDEXED 이미지: {}개", existingImages.size());
 
-        for (String keyword : SEARCH_KEYWORDS) {
-            List<SearchResult> results = searchPort.searchByKeyword(keyword, 3);
-            log.info("[{}] {}건 검색됨 → 다운로드 시작", keyword, results.size());
+        if (existingImages.isEmpty()) {
+            // 신규 등록 필요 → 네이버 검색 후 다운로드
+            List<Image> seededImages = new ArrayList<>();
 
-            for (SearchResult sr : results) {
-                try {
-                    Image image = downloadAndSeedImage(user, sr, keyword);
-                    if (image != null) {
-                        seededImages.add(image);
-                        log.info("  ✅ 등록: {} (ID: {})", image.getName(), image.getId());
+            for (String keyword : SEARCH_KEYWORDS) {
+                List<SearchResult> results = searchPort.searchByKeyword(keyword, 3);
+                log.info("[{}] {}건 검색됨 → 다운로드 시작", keyword, results.size());
+
+                for (SearchResult sr : results) {
+                    try {
+                        Image image = downloadAndSeedImage(user, sr, keyword);
+                        if (image != null) {
+                            seededImages.add(image);
+                            log.info("  ✅ 등록: {} (ID: {})", image.getName(), image.getId());
+                        }
+                    } catch (Exception e) {
+                        log.warn("  ❌ 실패: {} - {}", sr.imageUrl(), e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("  ❌ 실패: {} - {}", sr.imageUrl(), e.getMessage());
                 }
             }
+
+            log.info("=== 총 {}개 이미지 신규 등록 완료 ===", seededImages.size());
+            existingImages = imageRepository.findByUserIdAndStatus(user.getId(), ImageStatus.INDEXED);
+        } else {
+            log.info("=== 이전 실행에서 등록된 이미지 재사용 ===");
         }
 
-        log.info("=== 총 {}개 이미지 등록 완료 ===", seededImages.size());
-        assertThat(seededImages).isNotEmpty();
+        assertThat(existingImages).as("INDEXED 이미지가 최소 1개 있어야 함").isNotEmpty();
 
         // 3. 인터넷 탐지 스캔 실행
         log.info("=== 인터넷 탐지 스캔 시작 ===");
