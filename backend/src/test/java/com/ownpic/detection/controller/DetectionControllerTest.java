@@ -58,7 +58,7 @@ class DetectionControllerTest {
     @Test
     void postScan_authenticated_returns202() throws Exception {
         String token = validToken();
-        var response = new DetectionScanResponse(1L, "SCANNING", 5, 0, 0, 0, Instant.now(), null);
+        var response = new DetectionScanResponse(1L, "SCANNING", "FULL", 5, 0, 0, 0, Instant.now(), null);
         when(detectionService.startScan(userId)).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/detections/scan")
@@ -77,7 +77,7 @@ class DetectionControllerTest {
     @Test
     void getScans_authenticated_returns200() throws Exception {
         String token = validToken();
-        var scan = new DetectionScanResponse(1L, "COMPLETED", 10, 10, 3, 100, Instant.now(), Instant.now());
+        var scan = new DetectionScanResponse(1L, "COMPLETED", "FULL", 10, 10, 3, 100, Instant.now(), Instant.now());
         when(detectionService.getScans(eq(userId), any())).thenReturn(
                 new PageImpl<>(List.of(scan), PageRequest.of(0, 10), 1));
 
@@ -93,7 +93,7 @@ class DetectionControllerTest {
     @Test
     void getScanDetail_authenticated_returns200() throws Exception {
         String token = validToken();
-        var scanResp = new DetectionScanResponse(1L, "COMPLETED", 5, 5, 1, 100, Instant.now(), Instant.now());
+        var scanResp = new DetectionScanResponse(1L, "COMPLETED", "FULL", 5, 5, 1, 100, Instant.now(), Instant.now());
         var detail = new DetectionScanDetailResponse(scanResp, List.of());
         when(detectionService.getScanDetail(userId, 1L)).thenReturn(detail);
 
