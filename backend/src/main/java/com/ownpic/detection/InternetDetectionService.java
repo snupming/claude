@@ -146,18 +146,23 @@ public class InternetDetectionService {
         Double sscdSim = null;
         Double dinoSim = null;
 
-        if (sourceSSCD != null) {
-            float[] foundSSCD = sscdPort.generateEmbedding(foundBytes);
-            if (foundSSCD != null) {
-                sscdSim = cosineSimilarity(sourceSSCD, foundSSCD);
+        try {
+            if (sourceSSCD != null) {
+                float[] foundSSCD = sscdPort.generateEmbedding(foundBytes);
+                if (foundSSCD != null) {
+                    sscdSim = cosineSimilarity(sourceSSCD, foundSSCD);
+                }
             }
-        }
 
-        if (sourceDINO != null) {
-            float[] foundDINO = dinoPort.generateEmbedding(foundBytes);
-            if (foundDINO != null) {
-                dinoSim = cosineSimilarity(sourceDINO, foundDINO);
+            if (sourceDINO != null) {
+                float[] foundDINO = dinoPort.generateEmbedding(foundBytes);
+                if (foundDINO != null) {
+                    dinoSim = cosineSimilarity(sourceDINO, foundDINO);
+                }
             }
+        } catch (Exception e) {
+            log.debug("Embedding failed for {}: {}", sr.imageUrl(), e.getMessage());
+            return null;
         }
 
         // 3. 듀얼 판정
