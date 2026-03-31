@@ -1,4 +1,4 @@
-interface UploadItem {
+export interface UploadItem {
   id: string
   file: File
   status: 'pending' | 'uploading' | 'success' | 'error'
@@ -11,7 +11,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_CONCURRENT = 3
 
 export function useImageUpload() {
-  const queue = ref<UploadItem[]>([])
+  const queue = useState<UploadItem[]>('upload-queue', () => [])
   const isUploading = computed(() => queue.value.some(item => item.status === 'uploading'))
 
   function addFiles(files: FileList | File[]) {

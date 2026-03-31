@@ -5,6 +5,9 @@ import com.ownpic.detection.port.SscdEmbeddingPort;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
 import com.ownpic.image.port.ImageStoragePort;
+import com.ownpic.shared.ml.PgvectorUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -29,6 +32,9 @@ public class ImageIndexingService {
     private final ImageStoragePort storagePort;
     private final SscdEmbeddingPort sscdEmbeddingPort;
     private final DinoEmbeddingPort dinoEmbeddingPort;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public ImageIndexingService(ImageRepository imageRepository,
                                  ImageStoragePort storagePort,
@@ -66,6 +72,10 @@ public class ImageIndexingService {
                 image.setStatus(ImageStatus.INDEXED);
                 image.setIndexedAt(Instant.now());
                 imageRepository.save(image);
+
+                // vector 컬럼에도 저장 (pgvector 검색용)
+                saveVectorColumns(event.imageId(), sscdEmbedding, dinoEmbedding);
+
                 log.info("Image {} indexed (SSCD={}, DINOv2={})",
                         event.imageId(),
                         sscdEmbedding != null ? sscdEmbedding.length + "d" : "skip",
@@ -79,6 +89,27 @@ public class ImageIndexingService {
                 img.setStatus(ImageStatus.FAILED);
                 imageRepository.save(img);
             });
+        }
+    }
+
+    private void saveVectorColumns(Long imageId, float[] sscd, float[] dino) {
+        try {
+            if (sscd != null) {
+                entityManager.createNativeQuery(
+                        "UPDATE images SET embedding_sscd = cast(:vec AS vector) WHERE id = :id")
+                        .setParameter("vec", PgvectorUtils.toVectorString(sscd))
+                        .setParameter("id", imageId)
+                        .executeUpdate();
+            }
+            if (dino != null) {
+                entityManager.createNativeQuery(
+                        "UPDATE images SET embedding_dino_vec = cast(:vec AS vector) WHERE id = :id")
+                        .setParameter("vec", PgvectorUtils.toVectorString(dino))
+                        .setParameter("id", imageId)
+                        .executeUpdate();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to save vector columns for image {}: {}", imageId, e.getMessage());
         }
     }
 

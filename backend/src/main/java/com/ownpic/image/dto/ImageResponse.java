@@ -5,6 +5,7 @@ import java.time.Instant;
 public record ImageResponse(
         Long id,
         String name,
+        String storagePath,
         String status,
         int fileSize,
         int width,

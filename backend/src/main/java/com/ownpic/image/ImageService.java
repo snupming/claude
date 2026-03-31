@@ -102,6 +102,7 @@ public class ImageService {
         return new ImageResponse(
                 image.getId(),
                 image.getName(),
+                image.getGcsPath(),
                 image.getStatus().name(),
                 image.getFileSize(),
                 image.getWidth(),

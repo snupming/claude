@@ -30,4 +30,14 @@ public class NoOpSimilarImageSearchAdapter implements SimilarImageSearchPort {
     public List<SimilarImage> findAllDino(float[] embedding, double threshold, int limit) {
         return List.of();
     }
+
+    @Override
+    public List<BatchResult> findAllBatch(List<ImageEmbedding> embeddings, double threshold, int limitPerImage) {
+        return List.of();
+    }
+
+    @Override
+    public List<BatchResult> findAllDinoBatch(List<ImageEmbedding> embeddings, double threshold, int limitPerImage) {
+        return List.of();
+    }
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ShieldCheck, Upload, Image as ImageIcon, CheckCircle2, XCircle, Loader2, File as FileIcon } from 'lucide-vue-next'
+import { ShieldCheck, Upload, Image as ImageIcon, CheckCircle2, XCircle, Loader2, File as FileIcon, Trash2 } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useImageUpload } from '@/composables/useImageUpload'
 
 definePageMeta({
@@ -11,6 +12,7 @@ definePageMeta({
 interface ImageItem {
   id: number
   name: string
+  storagePath: string | null
   status: 'PENDING' | 'PROTECTED' | 'INDEXED' | 'FAILED'
   fileSize: number
   width: number
@@ -139,6 +141,36 @@ const sourceLabels: Record<string, string> = {
   ST11: '11번가',
 }
 
+// Delete
+const showDeleteDialog = ref(false)
+const deleteTarget = ref<ImageItem | null>(null)
+const isDeleting = ref(false)
+
+function confirmDelete(image: ImageItem) {
+  deleteTarget.value = image
+  showDeleteDialog.value = true
+}
+
+async function deleteImage() {
+  if (!deleteTarget.value) return
+  isDeleting.value = true
+  try {
+    await $fetch(`/api/images/${deleteTarget.value.id}`, { method: 'DELETE' })
+    showDeleteDialog.value = false
+    deleteTarget.value = null
+    await fetchImages()
+  } catch {
+    // handled silently
+  } finally {
+    isDeleting.value = false
+  }
+}
+
+function thumbnailUrl(image: ImageItem): string | null {
+  if (!image.storagePath) return null
+  return `/api/images/file/${image.storagePath}`
+}
+
 onMounted(fetchImages)
 </script>
 
@@ -215,8 +247,17 @@ onMounted(fetchImages)
             :key="image.id"
             class="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
           >
-            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <ImageIcon class="h-6 w-6 text-muted-foreground/50" />
+            <div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+              <img
+                v-if="thumbnailUrl(image)"
+                :src="thumbnailUrl(image)!"
+                :alt="image.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              >
+              <div v-else class="flex h-full w-full items-center justify-center">
+                <ImageIcon class="h-6 w-6 text-muted-foreground/50" />
+              </div>
             </div>
 
             <div class="min-w-0 flex-1">
@@ -229,12 +270,20 @@ onMounted(fetchImages)
               </div>
             </div>
 
-            <Badge
-              variant="secondary"
-              :class="statusLabels[image.status]?.class"
-            >
-              {{ statusLabels[image.status]?.label ?? image.status }}
-            </Badge>
+            <div class="flex items-center gap-2">
+              <Badge
+                variant="secondary"
+                :class="statusLabels[image.status]?.class"
+              >
+                {{ statusLabels[image.status]?.label ?? image.status }}
+              </Badge>
+              <button
+                class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                @click.stop="confirmDelete(image)"
+              >
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -381,5 +430,26 @@ onMounted(fetchImages)
         </div>
       </SheetContent>
     </Sheet>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="showDeleteDialog">
+      <DialogContent class="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>이미지 삭제</DialogTitle>
+          <DialogDescription>
+            "{{ deleteTarget?.name }}" 이미지를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" @click="showDeleteDialog = false" :disabled="isDeleting">
+            취소
+          </Button>
+          <Button variant="destructive" size="sm" @click="deleteImage" :disabled="isDeleting">
+            <Loader2 v-if="isDeleting" class="mr-2 h-3 w-3 animate-spin" />
+            삭제
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

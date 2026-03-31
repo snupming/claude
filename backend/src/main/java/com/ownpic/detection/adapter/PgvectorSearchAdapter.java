@@ -25,22 +25,22 @@ class PgvectorSearchAdapter implements SimilarImageSearchPort {
 
     @Override
     public List<SimilarImage> findByUser(float[] embedding, UUID userId, double threshold, int limit) {
-        return searchByColumn("embedding", embedding, userId, threshold, limit);
+        return searchByColumn("embedding_sscd", embedding, userId, threshold, limit);
     }
 
     @Override
     public List<SimilarImage> findAll(float[] embedding, double threshold, int limit) {
-        return searchAllByColumn("embedding", embedding, threshold, limit);
+        return searchAllByColumn("embedding_sscd", embedding, threshold, limit);
     }
 
     @Override
     public List<SimilarImage> findByUserDino(float[] embedding, UUID userId, double threshold, int limit) {
-        return searchByColumn("embedding_dino", embedding, userId, threshold, limit);
+        return searchByColumn("embedding_dino_vec", embedding, userId, threshold, limit);
     }
 
     @Override
     public List<SimilarImage> findAllDino(float[] embedding, double threshold, int limit) {
-        return searchAllByColumn("embedding_dino", embedding, threshold, limit);
+        return searchAllByColumn("embedding_dino_vec", embedding, threshold, limit);
     }
 
     private List<SimilarImage> searchByColumn(String column, float[] embedding,
@@ -88,5 +88,56 @@ class PgvectorSearchAdapter implements SimilarImageSearchPort {
                         UUID.fromString(rs.getString("user_id")),
                         rs.getDouble("similarity")),
                 vectorStr, maxDistance, limit);
+    }
+
+    @Override
+    public List<BatchResult> findAllBatch(List<ImageEmbedding> embeddings, double threshold, int limitPerImage) {
+        return batchSearchByColumn("embedding_sscd", embeddings, threshold, limitPerImage);
+    }
+
+    @Override
+    public List<BatchResult> findAllDinoBatch(List<ImageEmbedding> embeddings, double threshold, int limitPerImage) {
+        return batchSearchByColumn("embedding_dino_vec", embeddings, threshold, limitPerImage);
+    }
+
+    private List<BatchResult> batchSearchByColumn(String column, List<ImageEmbedding> embeddings,
+                                                   double threshold, int limitPerImage) {
+        if (embeddings.isEmpty()) return List.of();
+
+        double maxDistance = 1.0 - threshold;
+
+        // VALUES 절 동적 구성: (source_id, vec::vector), ...
+        var values = new StringBuilder();
+        var params = new java.util.ArrayList<>();
+        for (int idx = 0; idx < embeddings.size(); idx++) {
+            if (idx > 0) values.append(", ");
+            values.append("(?, ?::vector)");
+            params.add(embeddings.get(idx).imageId());
+            params.add(PgvectorUtils.toVectorString(embeddings.get(idx).embedding()));
+        }
+        params.add(maxDistance);
+        params.add(limitPerImage);
+
+        String sql = """
+                WITH source_embeddings(source_id, vec) AS (VALUES %s)
+                SELECT s.source_id, sub.id AS matched_id, sub.user_id AS matched_user_id, sub.similarity
+                FROM source_embeddings s
+                CROSS JOIN LATERAL (
+                    SELECT i.id, i.user_id, 1 - (i.%s <=> s.vec) AS similarity
+                    FROM images i
+                    WHERE i.%s IS NOT NULL
+                      AND (i.%s <=> s.vec) < ?
+                    ORDER BY i.%s <=> s.vec
+                    LIMIT ?
+                ) sub
+                """.formatted(values, column, column, column, column);
+
+        return jdbcTemplate.query(sql,
+                (rs, rowNum) -> new BatchResult(
+                        rs.getLong("source_id"),
+                        rs.getLong("matched_id"),
+                        UUID.fromString(rs.getString("matched_user_id")),
+                        rs.getDouble("similarity")),
+                params.toArray());
     }
 }
