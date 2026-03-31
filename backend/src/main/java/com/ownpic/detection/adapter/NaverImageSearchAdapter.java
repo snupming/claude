@@ -81,12 +81,11 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
             if (items != null && items.isArray()) {
                 for (JsonNode item : items) {
                     String imageUrl = textOrNull(item, "link");
-                    String sourcePageUrl = textOrNull(item, "sizeheight") != null
-                            ? textOrNull(item, "link") : null;
+                    String thumbnail = textOrNull(item, "thumbnail");
                     String title = stripHtml(textOrNull(item, "title"));
 
                     if (imageUrl != null) {
-                        results.add(new SearchResult(imageUrl, sourcePageUrl, title));
+                        results.add(new SearchResult(imageUrl, thumbnail, title));
                     }
                 }
             }

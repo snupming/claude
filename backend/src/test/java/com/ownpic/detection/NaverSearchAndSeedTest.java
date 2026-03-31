@@ -171,18 +171,16 @@ class NaverSearchAndSeedTest {
      * 이미지 다운로드 → 저장 → DB 등록 (INDEXED 상태, 더미 임베딩)
      */
     private Image downloadAndSeedImage(User user, SearchResult sr, String keyword) throws Exception {
-        // 이미지 다운로드
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(sr.imageUrl()))
-                .header("User-Agent", "Mozilla/5.0")
-                .timeout(Duration.ofSeconds(10))
-                .GET().build();
-
-        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() != 200) return null;
-
-        byte[] imageBytes = response.body();
-        if (imageBytes.length < 1000 || imageBytes.length > 10_000_000) return null;
+        // link URL 시도 → 실패 시 thumbnail URL 폴백
+        byte[] imageBytes = downloadImage(sr.imageUrl());
+        if (imageBytes == null && sr.sourcePageUrl() != null) {
+            log.info("  link 실패, thumbnail 시도: {}", sr.sourcePageUrl());
+            imageBytes = downloadImage(sr.sourcePageUrl());
+        }
+        if (imageBytes == null) {
+            log.warn("  다운로드 최종 실패: {}", sr.imageUrl());
+            return null;
+        }
 
         // SHA256 계산
         String sha256 = sha256Hex(imageBytes);
@@ -216,6 +214,36 @@ class NaverSearchAndSeedTest {
         image.setIndexedAt(Instant.now());
 
         return imageRepository.save(image);
+    }
+
+    private byte[] downloadImage(String url) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .header("Accept", "image/*, */*")
+                    .header("Referer", "https://search.naver.com/")
+                    .timeout(Duration.ofSeconds(15))
+                    .GET().build();
+
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            log.debug("  HTTP {}: {} bytes from {}", response.statusCode(), response.body().length, url);
+
+            if (response.statusCode() != 200) {
+                log.warn("  HTTP {} for {}", response.statusCode(), url);
+                return null;
+            }
+
+            byte[] body = response.body();
+            if (body.length < 100 || body.length > 10_000_000) {
+                log.warn("  크기 부적합: {} bytes from {}", body.length, url);
+                return null;
+            }
+            return body;
+        } catch (Exception e) {
+            log.warn("  다운로드 예외: {} - {}", url, e.getMessage());
+            return null;
+        }
     }
 
     private String cleanTitle(String title, String fallback) {
