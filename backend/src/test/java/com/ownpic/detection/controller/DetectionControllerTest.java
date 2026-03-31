@@ -5,13 +5,14 @@ import com.ownpic.auth.jwt.JwtProvider;
 import com.ownpic.detection.DetectionService;
 import com.ownpic.detection.dto.DetectionScanDetailResponse;
 import com.ownpic.detection.dto.DetectionScanResponse;
-import com.ownpic.shared.config.CorsProperties;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,13 +27,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DetectionController.class)
+@Import(JwtAuthenticationFilter.class)
+@TestPropertySource(properties = {
+        "ownpic.cors.allowed-origins=http://localhost:3000",
+        "ownpic.jwt.secret=test-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm",
+        "ownpic.jwt.access-token-expiration=900000",
+        "ownpic.jwt.refresh-token-expiration=604800000"
+})
 class DetectionControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean DetectionService detectionService;
     @MockitoBean JwtProvider jwtProvider;
-    @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockitoBean CorsProperties corsProperties;
 
     private final UUID userId = UUID.randomUUID();
 
