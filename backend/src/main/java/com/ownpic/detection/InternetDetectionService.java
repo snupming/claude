@@ -2,14 +2,13 @@ package com.ownpic.detection;
 
 import com.ownpic.detection.domain.*;
 import com.ownpic.detection.dto.DetectionScanResponse;
-import com.ownpic.detection.port.DinoEmbeddingPort;
-import com.ownpic.detection.port.ExternalImageDownloadPort;
-import com.ownpic.detection.port.InternetImageSearchPort;
+import com.ownpic.detection.port.*;
 import com.ownpic.detection.port.InternetImageSearchPort.SearchResult;
-import com.ownpic.detection.port.SscdEmbeddingPort;
+import com.ownpic.detection.port.ReverseImageSearchPort.ReverseSearchResult;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
+import com.ownpic.image.port.ImageStoragePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,7 +36,9 @@ public class InternetDetectionService {
     private final InternetDetectionResultRepository resultRepository;
     private final ImageRepository imageRepository;
     private final InternetImageSearchPort searchPort;
+    private final ReverseImageSearchPort reverseSearchPort;
     private final ExternalImageDownloadPort downloadPort;
+    private final ImageStoragePort storagePort;
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
 
@@ -45,14 +46,18 @@ public class InternetDetectionService {
                                     InternetDetectionResultRepository resultRepository,
                                     ImageRepository imageRepository,
                                     InternetImageSearchPort searchPort,
+                                    ReverseImageSearchPort reverseSearchPort,
                                     ExternalImageDownloadPort downloadPort,
+                                    ImageStoragePort storagePort,
                                     SscdEmbeddingPort sscdPort,
                                     DinoEmbeddingPort dinoPort) {
         this.scanRepository = scanRepository;
         this.resultRepository = resultRepository;
         this.imageRepository = imageRepository;
         this.searchPort = searchPort;
+        this.reverseSearchPort = reverseSearchPort;
         this.downloadPort = downloadPort;
+        this.storagePort = storagePort;
         this.sscdPort = sscdPort;
         this.dinoPort = dinoPort;
     }
@@ -84,15 +89,33 @@ public class InternetDetectionService {
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
                 float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
 
-                // 이미지 이름/키워드 기반으로 네이버 검색
+                // 1단계: 네이버 키워드 검색
                 String keyword = buildSearchKeyword(image);
-                List<SearchResult> searchResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
+                List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
 
-                for (SearchResult sr : searchResults) {
+                for (SearchResult sr : keywordResults) {
                     InternetDetectionResult result = processSearchResult(
-                            scanId, image.getId(), sr, sourceSSCD, sourceDINO);
+                            scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
                     if (result != null) {
                         allResults.add(result);
+                    }
+                }
+
+                // 2단계: 키워드 결과가 없으면 구글 리버스 이미지 검색
+                if (keywordResults.isEmpty() && image.getGcsPath() != null) {
+                    byte[] imageBytes = storagePort.load(image.getGcsPath());
+                    if (imageBytes != null && imageBytes.length > 0) {
+                        List<ReverseSearchResult> reverseResults =
+                                reverseSearchPort.searchByImage(imageBytes, MAX_SEARCH_RESULTS);
+
+                        for (ReverseSearchResult rr : reverseResults) {
+                            SearchResult sr = new SearchResult(rr.imageUrl(), rr.sourcePageUrl(), rr.title());
+                            InternetDetectionResult result = processSearchResult(
+                                    scanId, image.getId(), sr, sourceSSCD, sourceDINO, "GOOGLE");
+                            if (result != null) {
+                                allResults.add(result);
+                            }
+                        }
                     }
                 }
 
@@ -113,7 +136,7 @@ public class InternetDetectionService {
 
     private InternetDetectionResult processSearchResult(
             Long scanId, Long sourceImageId, SearchResult sr,
-            float[] sourceSSCD, float[] sourceDINO) {
+            float[] sourceSSCD, float[] sourceDINO, String searchEngine) {
 
         // 1. 외부 이미지 다운로드
         byte[] foundBytes = downloadPort.download(sr.imageUrl(), DOWNLOAD_TIMEOUT_MS);
@@ -148,7 +171,7 @@ public class InternetDetectionService {
         return new InternetDetectionResult(
                 scanId, sourceImageId,
                 sr.imageUrl(), sr.sourcePageUrl(), sr.title(),
-                sscdSim, dinoSim, "INFRINGEMENT", "NAVER");
+                sscdSim, dinoSim, "INFRINGEMENT", searchEngine);
     }
 
     /**

@@ -52,5 +52,11 @@ ownpic:
   naver:
     client-id: ${NAVER_CLIENT_ID:}
     client-secret: ${NAVER_CLIENT_SECRET:}
+  google:
+    max-daily-requests: ${GOOGLE_MAX_DAILY:100}
+    min-delay-ms: ${GOOGLE_MIN_DELAY:7000}
+    jitter-ms: ${GOOGLE_JITTER:3000}
+    consecutive-failure-threshold: ${GOOGLE_FAIL_THRESHOLD:3}
+    request-timeout-seconds: ${GOOGLE_TIMEOUT:30}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}

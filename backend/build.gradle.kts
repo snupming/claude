@@ -42,6 +42,9 @@ dependencies {
     // ONNX Runtime (ML models)
     implementation("com.microsoft.onnxruntime:onnxruntime:1.22.0")
 
+    // HTML parsing (Google search result scraping)
+    implementation("org.jsoup:jsoup:1.18.3")
+
     // Dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
