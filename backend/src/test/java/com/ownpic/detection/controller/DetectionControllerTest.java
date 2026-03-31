@@ -94,7 +94,7 @@ class DetectionControllerTest {
     void getScanDetail_authenticated_returns200() throws Exception {
         String token = validToken();
         var scanResp = new DetectionScanResponse(1L, "COMPLETED", "FULL", 5, 5, 1, 100, Instant.now(), Instant.now());
-        var detail = new DetectionScanDetailResponse(scanResp, List.of());
+        var detail = new DetectionScanDetailResponse(scanResp, List.of(), List.of());
         when(detectionService.getScanDetail(userId, 1L)).thenReturn(detail);
 
         mockMvc.perform(get("/api/v1/detections/scans/1")

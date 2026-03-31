@@ -56,7 +56,7 @@ class AuthControllerTest {
     @Test
     void signup_duplicateEmail_returns409() throws Exception {
         var request = new SignupRequest("테스트", "dup@test.com", "password123");
-        when(authService.signup(any())).thenThrow(new DuplicateEmailException("dup@test.com"));
+        when(authService.signup(any())).thenThrow(new DuplicateEmailException());
 
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -98,7 +98,7 @@ class AuthControllerTest {
     @Test
     void login_invalidCredentials_returns401() throws Exception {
         var request = new LoginRequest("test@test.com", "wrong");
-        when(authService.login(any())).thenThrow(new AuthenticationFailedException("인증 실패"));
+        when(authService.login(any())).thenThrow(new AuthenticationFailedException());
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

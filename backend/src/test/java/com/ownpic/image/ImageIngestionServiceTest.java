@@ -78,7 +78,7 @@ class ImageIngestionServiceTest {
         when(imageRepository.findByUserIdAndSha256(eq(userId), any())).thenReturn(Optional.empty());
         when(imageRepository.allocateId()).thenReturn(1L);
         when(watermarkPort.encode(any(), any())).thenReturn(
-                new WatermarkResult(imageBytes, "payload", 200, 200));
+                new WatermarkResult(imageBytes, 200, 200, "payload"));
         when(storagePort.save(eq(userId), any())).thenReturn(userId + "/test.png");
         when(imageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -149,7 +149,7 @@ class ImageIngestionServiceTest {
         when(imageRepository.findByUserIdAndSha256(eq(userId), any())).thenReturn(Optional.empty());
         when(imageRepository.allocateId()).thenReturn(1L);
         when(watermarkPort.encode(any(), any())).thenReturn(
-                new WatermarkResult(imageBytes, "payload", 200, 200));
+                new WatermarkResult(imageBytes, 200, 200, "payload"));
         when(storagePort.save(eq(userId), any())).thenReturn("path");
         // TX#2에서 예외 발생 시뮬레이션을 위해 imageRepository.save에서 예외
         when(imageRepository.save(any())).thenThrow(new RuntimeException("DB error"));
