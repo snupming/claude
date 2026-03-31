@@ -4,8 +4,10 @@ import com.ownpic.auth.domain.User;
 import com.ownpic.auth.domain.UserRepository;
 import com.ownpic.detection.domain.DetectionScanRepository;
 import com.ownpic.detection.domain.InternetDetectionResultRepository;
+import com.ownpic.detection.port.DinoEmbeddingPort;
 import com.ownpic.detection.port.InternetImageSearchPort;
 import com.ownpic.detection.port.InternetImageSearchPort.SearchResult;
+import com.ownpic.detection.port.SscdEmbeddingPort;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
@@ -39,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ⚠️ 이 테스트는 실제 DB(Supabase)와 네이버 API를 사용합니다.
  */
 @SpringBootTest
-@ActiveProfiles("naver")
+@ActiveProfiles({"naver", "onnx"})
 class NaverSearchAndSeedTest {
 
     private static final Logger log = LoggerFactory.getLogger(NaverSearchAndSeedTest.class);
@@ -63,6 +65,8 @@ class NaverSearchAndSeedTest {
     @Autowired DetectionScanRepository scanRepository;
     @Autowired InternetDetectionResultRepository resultRepository;
     @Autowired InternetDetectionService internetDetectionService;
+    @Autowired SscdEmbeddingPort sscdEmbeddingPort;
+    @Autowired DinoEmbeddingPort dinoEmbeddingPort;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -139,6 +143,28 @@ class NaverSearchAndSeedTest {
 
         assertThat(existingImages).as("INDEXED 이미지가 최소 1개 있어야 함").isNotEmpty();
 
+        // 2-1. 기존 이미지 임베딩이 더미인 경우 실제 ONNX 임베딩으로 재생성
+        int reindexed = 0;
+        for (Image img : existingImages) {
+            if (img.getGcsPath() == null) continue;
+            byte[] imgBytes = storagePort.load(img.getGcsPath());
+            if (imgBytes == null || imgBytes.length == 0) continue;
+
+            try {
+                float[] sscd = sscdEmbeddingPort.generateEmbedding(imgBytes);
+                float[] dino = dinoEmbeddingPort.generateEmbedding(imgBytes);
+                if (sscd != null) img.setEmbedding(floatsToBytes(sscd));
+                if (dino != null) img.setEmbeddingDino(floatsToBytes(dino));
+                imageRepository.save(img);
+                reindexed++;
+                log.info("  재인덱싱: {} (SSCD={}, DINO={})",
+                        img.getName(), sscd != null ? sscd.length : "null", dino != null ? dino.length : "null");
+            } catch (Exception e) {
+                log.warn("  재인덱싱 실패: {} - {}", img.getName(), e.getMessage());
+            }
+        }
+        log.info("=== {}개 이미지 ONNX 임베딩 재생성 완료 ===", reindexed);
+
         // 3. 인터넷 탐지 스캔 실행
         log.info("=== 인터넷 탐지 스캔 시작 ===");
         var scanResponse = internetDetectionService.startInternetScan(user.getId());
@@ -204,9 +230,11 @@ class NaverSearchAndSeedTest {
         // 파일 저장
         String storagePath = storagePort.save(user.getId(), imageBytes);
 
-        // 더미 임베딩 생성 (512 floats for SSCD, 384 floats for DINOv2)
-        byte[] sscdEmbedding = generateDummyEmbedding(512);
-        byte[] dinoEmbedding = generateDummyEmbedding(384);
+        // 실제 ONNX 임베딩 생성
+        float[] sscd = sscdEmbeddingPort.generateEmbedding(imageBytes);
+        float[] dino = dinoEmbeddingPort.generateEmbedding(imageBytes);
+        byte[] sscdEmbedding = sscd != null ? floatsToBytes(sscd) : null;
+        byte[] dinoEmbedding = dino != null ? floatsToBytes(dino) : null;
 
         // Image 엔티티 생성
         Image image = new Image();
@@ -265,12 +293,9 @@ class NaverSearchAndSeedTest {
         return fallback + ".jpg";
     }
 
-    private byte[] generateDummyEmbedding(int dims) {
-        Random rand = new Random(42);
-        ByteBuffer buf = ByteBuffer.allocate(dims * 4);
-        for (int i = 0; i < dims; i++) {
-            buf.putFloat((float) rand.nextGaussian() * 0.1f);
-        }
+    private byte[] floatsToBytes(float[] floats) {
+        ByteBuffer buf = ByteBuffer.allocate(floats.length * 4);
+        for (float f : floats) buf.putFloat(f);
         return buf.array();
     }
 
