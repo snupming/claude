@@ -236,8 +236,9 @@ class DetectionServiceTest {
 
         detectionService.executeScanAsync(1L, userId, List.of(img));
 
-        // Should call failScan → findById + save with FAILED status
-        verify(scanRepository, atLeast(2)).findById(1L);
+        // failScan → findById + save with FAILED status
+        verify(scanRepository, atLeast(1)).findById(1L);
+        verify(scanRepository).save(argThat(s -> "FAILED".equals(s.getStatus())));
     }
 
     @Test
