@@ -1,6 +1,7 @@
 package com.ownpic.image.controller;
 
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
+import com.ownpic.auth.jwt.JwtProperties;
 import com.ownpic.auth.jwt.JwtProvider;
 import com.ownpic.shared.config.CorsProperties;
 import com.ownpic.image.ImageService;
@@ -38,6 +39,7 @@ class ImageControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean ImageService imageService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean JwtProperties jwtProperties;
     @MockitoBean CorsProperties corsProperties;
 
     private final UUID userId = UUID.randomUUID();

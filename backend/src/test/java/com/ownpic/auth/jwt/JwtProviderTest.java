@@ -52,8 +52,12 @@ class JwtProviderTest {
         UUID userId = UUID.randomUUID();
         String token = jwtProvider.generateAccessToken(userId, "a@b.com", "FREE");
 
-        // Tamper the token by changing last character
-        String tampered = token.substring(0, token.length() - 1) + (token.charAt(token.length() - 1) == 'A' ? 'B' : 'A');
+        // Tamper the payload by flipping a character in the middle of the second segment
+        String[] parts = token.split("\\.");
+        char[] payloadChars = parts[1].toCharArray();
+        int mid = payloadChars.length / 2;
+        payloadChars[mid] = (payloadChars[mid] == 'X') ? 'Y' : 'X';
+        String tampered = parts[0] + "." + new String(payloadChars) + "." + parts[2];
         assertThat(jwtProvider.validateAccessToken(tampered)).isFalse();
     }
 

@@ -10,6 +10,7 @@ import com.ownpic.auth.dto.SignupResponse;
 import com.ownpic.auth.exception.AuthenticationFailedException;
 import com.ownpic.auth.exception.DuplicateEmailException;
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
+import com.ownpic.auth.jwt.JwtProperties;
 import com.ownpic.auth.jwt.JwtProvider;
 import com.ownpic.shared.config.CorsProperties;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ class AuthControllerTest {
     @Autowired ObjectMapper objectMapper;
     @MockitoBean AuthService authService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean JwtProperties jwtProperties;
     @MockitoBean CorsProperties corsProperties;
 
     @Test

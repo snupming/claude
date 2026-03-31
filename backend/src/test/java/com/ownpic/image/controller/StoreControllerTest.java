@@ -2,6 +2,7 @@ package com.ownpic.image.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
+import com.ownpic.auth.jwt.JwtProperties;
 import com.ownpic.auth.jwt.JwtProvider;
 import com.ownpic.shared.config.CorsProperties;
 import com.ownpic.image.StoreService;
@@ -38,6 +39,7 @@ class StoreControllerTest {
     @Autowired ObjectMapper objectMapper;
     @MockitoBean StoreService storeService;
     @MockitoBean JwtProvider jwtProvider;
+    @MockitoBean JwtProperties jwtProperties;
     @MockitoBean CorsProperties corsProperties;
 
     private final UUID userId = UUID.randomUUID();
