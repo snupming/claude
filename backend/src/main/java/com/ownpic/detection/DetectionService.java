@@ -34,6 +34,7 @@ public class DetectionService {
     private static final int BATCH_SIZE = 10;
     private static final double SSCD_THRESHOLD = 0.30;
     private static final double DINO_THRESHOLD = 0.70;
+    private static final double SSCD_MIN_FOR_DINO = 0.15;
 
     private final DetectionScanRepository scanRepository;
     private final DetectionResultRepository resultRepository;
@@ -86,7 +87,7 @@ public class DetectionService {
                 }
                 List<BatchResult> sscdMatches = sscdBatch.isEmpty()
                         ? List.of()
-                        : searchPort.findAllBatch(sscdBatch, SSCD_THRESHOLD, 20);
+                        : searchPort.findAllBatch(sscdBatch, SSCD_MIN_FOR_DINO, 20);
 
                 // DINOv2 배치
                 List<ImageEmbedding> dinoBatch = new ArrayList<>();
@@ -150,9 +151,12 @@ public class DetectionService {
             double sscd = entry.getValue()[0];
             double dino = entry.getValue()[1];
 
-            // 듀얼 판정
+            // 듀얼 판정 — SSCD 메인, DINO 보조 (bg_swap 등 변형 탐지)
+            boolean sscdMatch = sscd >= SSCD_THRESHOLD;
+            boolean dinoAssist = sscd >= SSCD_MIN_FOR_DINO && dino >= DINO_THRESHOLD;
+
             String judgment;
-            if (sscd >= SSCD_THRESHOLD || dino >= DINO_THRESHOLD) {
+            if (sscdMatch || dinoAssist) {
                 judgment = "INFRINGEMENT";
             } else {
                 continue; // threshold 미달은 저장하지 않음

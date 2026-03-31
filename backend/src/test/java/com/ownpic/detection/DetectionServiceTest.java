@@ -94,7 +94,7 @@ class DetectionServiceTest {
         detectionService.executeScanAsync(1L, userId, images);
 
         // 2 batches → 2 calls each for SSCD and DINO
-        verify(searchPort, times(2)).findAllBatch(anyList(), eq(0.30), eq(20));
+        verify(searchPort, times(2)).findAllBatch(anyList(), eq(0.15), eq(20));
         verify(searchPort, times(2)).findAllDinoBatch(anyList(), eq(0.70), eq(20));
         verify(scanRepository, atLeast(2)).findById(1L); // progress updates
     }
@@ -187,13 +187,34 @@ class DetectionServiceTest {
     }
 
     @Test
-    void executeScanAsync_dualJudgment_dinoAboveThreshold() {
+    void executeScanAsync_dualJudgment_dinoAboveThreshold_withSscdMin() {
         Image img = createImageWithEmbeddings(1L, userId);
         DetectionScan scan = new DetectionScan(userId, 1);
         setField(scan, "id", 1L);
         when(scanRepository.findById(1L)).thenReturn(Optional.of(scan));
 
-        // No SSCD, DINO=0.75 (above 0.70)
+        // SSCD=0.20 (above 0.15 min), DINO=0.75 (above 0.70) → bg_swap 보조 탐지
+        BatchResult sscdMatch = new BatchResult(1L, 99L, otherUserId, 0.20);
+        BatchResult dinoMatch = new BatchResult(1L, 99L, otherUserId, 0.75);
+        when(searchPort.findAllBatch(anyList(), anyDouble(), anyInt())).thenReturn(List.of(sscdMatch));
+        when(searchPort.findAllDinoBatch(anyList(), anyDouble(), anyInt())).thenReturn(List.of(dinoMatch));
+
+        detectionService.executeScanAsync(1L, userId, List.of(img));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DetectionResult>> captor = ArgumentCaptor.forClass(List.class);
+        verify(resultRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+    }
+
+    @Test
+    void executeScanAsync_dualJudgment_dinoOnly_noSscdMin_rejected() {
+        Image img = createImageWithEmbeddings(1L, userId);
+        DetectionScan scan = new DetectionScan(userId, 1);
+        setField(scan, "id", 1L);
+        when(scanRepository.findById(1L)).thenReturn(Optional.of(scan));
+
+        // No SSCD match, DINO=0.75 → DINO 단독은 차단
         BatchResult dinoMatch = new BatchResult(1L, 99L, otherUserId, 0.75);
         when(searchPort.findAllBatch(anyList(), anyDouble(), anyInt())).thenReturn(List.of());
         when(searchPort.findAllDinoBatch(anyList(), anyDouble(), anyInt())).thenReturn(List.of(dinoMatch));
@@ -203,7 +224,7 @@ class DetectionServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<DetectionResult>> captor = ArgumentCaptor.forClass(List.class);
         verify(resultRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue()).isEmpty();
     }
 
     @Test

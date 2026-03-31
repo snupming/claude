@@ -29,6 +29,7 @@ public class InternetDetectionService {
 
     private static final double SSCD_THRESHOLD = 0.30;
     private static final double DINO_THRESHOLD = 0.70;
+    private static final double SSCD_MIN_FOR_DINO = 0.15;
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
 
@@ -165,11 +166,12 @@ public class InternetDetectionService {
             return null;
         }
 
-        // 3. 듀얼 판정
+        // 3. 듀얼 판정 — SSCD 메인, DINO 보조 (bg_swap 등 변형 탐지)
         boolean sscdMatch = sscdSim != null && sscdSim >= SSCD_THRESHOLD;
-        boolean dinoMatch = dinoSim != null && dinoSim >= DINO_THRESHOLD;
+        boolean dinoAssist = sscdSim != null && sscdSim >= SSCD_MIN_FOR_DINO
+                && dinoSim != null && dinoSim >= DINO_THRESHOLD;
 
-        if (!sscdMatch && !dinoMatch) {
+        if (!sscdMatch && !dinoAssist) {
             return null; // 임계값 미달 → 스킵
         }
 
