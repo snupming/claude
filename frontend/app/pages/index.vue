@@ -132,7 +132,7 @@ const plans = [
         </div>
 
         <!-- Stats — 프로덕션: max-w-xl, max-md:grid-cols-1 max-md:gap-5 -->
-        <div class="fade-in mx-auto grid max-w-xl grid-cols-3 gap-8 max-md:grid-cols-1 max-md:gap-5">
+        <div class="fade-in mx-auto grid max-w-2xl grid-cols-3 gap-8 max-md:grid-cols-1 max-md:gap-5">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
             <p class="text-3xl font-extrabold text-primary">{{ stat.value }}</p>
             <p class="text-xs text-muted-foreground">{{ stat.label }}</p>
