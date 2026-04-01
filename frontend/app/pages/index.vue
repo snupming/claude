@@ -16,9 +16,9 @@ import {
 useFadeIn()
 
 const stats = [
-  { value: '59,565건', label: '2024년 저작권법 위반 단속 건수 (경찰청)' },
-  { value: '222%↑', label: '전년 대비 저작권 위반 사건 증가율 (지재위)' },
-  { value: '104만건', label: '2024년 온라인 불법복제물 시정권고 (문체부)' },
+  { value: '59,565건', label: '2024년 저작권법 위반 단속 건수', source: '경찰청' },
+  { value: '222%↑', label: '전년 대비 저작권 위반 사건 증가율', source: '지재위' },
+  { value: '104만건', label: '2024년 온라인 불법복제물 시정권고', source: '문체부' },
 ]
 
 const problems = [
@@ -135,7 +135,8 @@ const plans = [
         <div class="fade-in mx-auto grid max-w-xl grid-cols-3 gap-8 max-md:grid-cols-1 max-md:gap-5">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
             <p class="text-3xl font-extrabold text-primary">{{ stat.value }}</p>
-            <p class="whitespace-nowrap text-xs text-muted-foreground">{{ stat.label }}</p>
+            <p class="text-xs text-muted-foreground">{{ stat.label }}</p>
+            <p class="text-xs text-muted-foreground">({{ stat.source }})</p>
           </div>
         </div>
       </div>
