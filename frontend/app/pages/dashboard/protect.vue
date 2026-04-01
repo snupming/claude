@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ShieldCheck, Upload, Image as ImageIcon, CheckCircle2, XCircle, Loader2, File as FileIcon, Trash2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -154,13 +155,28 @@ function confirmDelete(image: ImageItem) {
 async function deleteImage() {
   if (!deleteTarget.value) return
   isDeleting.value = true
+  const deletedId = deleteTarget.value.id
   try {
-    await $fetch(`/api/images/${deleteTarget.value.id}`, { method: 'DELETE' })
+    await $fetch(`/api/images/${deletedId}`, { method: 'DELETE' })
+    // 목록에서 즉시 제거 (optimistic)
+    images.value = images.value.filter(img => img.id !== deletedId)
+    totalElements.value = Math.max(0, totalElements.value - 1)
     showDeleteDialog.value = false
     deleteTarget.value = null
-    await fetchImages()
+    toast.success('삭제되었습니다')
+    // 백그라운드에서 목록 동기화 (스켈레톤 없이)
+    try {
+      const params: Record<string, string> = { page: String(currentPage.value), size: '20' }
+      if (filterStatus.value) params.status = filterStatus.value
+      const data = await $fetch<ImageListData>('/api/images', { params })
+      images.value = data.images
+      totalElements.value = data.totalElements
+      totalPages.value = data.totalPages
+    } catch {
+      // 백그라운드 동기화 실패는 무시
+    }
   } catch {
-    // handled silently
+    toast.error('삭제에 실패했습니다')
   } finally {
     isDeleting.value = false
   }
