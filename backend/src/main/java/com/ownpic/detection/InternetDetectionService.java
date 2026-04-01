@@ -189,7 +189,7 @@ public class InternetDetectionService {
 
     /**
      * 이미지의 검색 키워드를 결정한다.
-     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → 파일명 (최후 수단)
+     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → null (리버스 이미지 검색으로 fallback)
      */
     private String buildSearchKeyword(Image image) {
         // 1. 사용자가 직접 입력한 키워드
@@ -205,7 +205,6 @@ public class InternetDetectionService {
                     String caption = captionPort.generateKeywords(imageBytes);
                     if (caption != null && !caption.isBlank()) {
                         log.info("AI-generated keywords for image {}: {}", image.getId(), caption);
-                        // 생성된 키워드를 DB에 캐싱 (다음 스캔 시 재사용)
                         image.setKeywords(caption);
                         imageRepository.save(image);
                         return caption;
@@ -216,12 +215,8 @@ public class InternetDetectionService {
             }
         }
 
-        // 3. 파일명에서 키워드 추출 (최후 수단)
-        String name = image.getName();
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        String fallback = name.replaceAll("[_\\-]+", " ").trim();
-        return fallback.isEmpty() ? null : fallback;
+        // 키워드 없으면 null → 키워드 검색 스킵, 리버스 이미지 검색으로 진행
+        return null;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
