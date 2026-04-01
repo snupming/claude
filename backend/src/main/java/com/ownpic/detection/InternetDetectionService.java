@@ -189,7 +189,7 @@ public class InternetDetectionService {
 
     /**
      * 이미지의 검색 키워드를 결정한다.
-     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → null (키워드 검색 스킵)
+     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → 파일명 (최후 수단)
      */
     private String buildSearchKeyword(Image image) {
         // 1. 사용자가 직접 입력한 키워드
@@ -216,7 +216,12 @@ public class InternetDetectionService {
             }
         }
 
-        return null;
+        // 3. 파일명에서 키워드 추출 (최후 수단)
+        String name = image.getName();
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        String fallback = name.replaceAll("[_\\-]+", " ").trim();
+        return fallback.isEmpty() ? null : fallback;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

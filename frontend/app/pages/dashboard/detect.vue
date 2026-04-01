@@ -187,29 +187,31 @@ onUnmounted(stopPolling)
       </CardContent>
     </Card>
 
-    <!-- Start Scan -->
-    <Card v-if="!isScanning && !activeScan" class="mt-8">
+    <!-- Loading Skeleton (새로고침 시 상태 복원 전) -->
+    <Card v-if="isLoading && !activeScan" class="mt-8">
       <CardContent class="flex flex-col items-center py-16">
-        <template v-if="isLoading">
-          <Skeleton class="h-14 w-14 rounded-2xl" />
-          <Skeleton class="mt-4 h-5 w-48" />
-          <Skeleton class="mt-2 h-4 w-72" />
-          <Skeleton class="mt-6 h-10 w-28 rounded-lg" />
-        </template>
-        <template v-else>
-          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-            <Globe class="h-7 w-7 text-primary" />
-          </div>
-          <h3 class="mt-4 text-lg font-semibold">인터넷 도용 탐지</h3>
-          <p class="mt-1.5 max-w-md text-center text-sm text-muted-foreground">
-            보호된 이미지의 키워드로 네이버를 검색하고, 발견된 이미지와 SSCD/DINOv2로 유사도를 비교합니다
-          </p>
-          <Button class="mt-6 gap-2" :disabled="isStarting" @click="handleStartScan">
-            <Loader2 v-if="isStarting" class="h-4 w-4 animate-spin" />
-            <Search v-else class="h-4 w-4" />
-            인터넷 탐지 시작
-          </Button>
-        </template>
+        <Skeleton class="h-14 w-14 rounded-2xl" />
+        <Skeleton class="mt-4 h-5 w-48" />
+        <Skeleton class="mt-2 h-4 w-72" />
+        <Skeleton class="mt-6 h-10 w-28 rounded-lg" />
+      </CardContent>
+    </Card>
+
+    <!-- Start Scan -->
+    <Card v-if="!isLoading && !isScanning && !activeScan" class="mt-8">
+      <CardContent class="flex flex-col items-center py-16">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <Globe class="h-7 w-7 text-primary" />
+        </div>
+        <h3 class="mt-4 text-lg font-semibold">인터넷 도용 탐지</h3>
+        <p class="mt-1.5 max-w-md text-center text-sm text-muted-foreground">
+          보호된 이미지의 키워드로 네이버를 검색하고, 발견된 이미지와 SSCD/DINOv2로 유사도를 비교합니다
+        </p>
+        <Button class="mt-6 gap-2" :disabled="isStarting" @click="handleStartScan">
+          <Loader2 v-if="isStarting" class="h-4 w-4 animate-spin" />
+          <Search v-else class="h-4 w-4" />
+          인터넷 탐지 시작
+        </Button>
       </CardContent>
     </Card>
 
