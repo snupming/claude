@@ -43,6 +43,9 @@ export default defineNuxtConfig({
     '/login': { ssr: true },
     '/signup': { ssr: true },
     '/dashboard/**': { ssr: false },
+    '/protect/**': { ssr: false },
+    '/detect/**': { ssr: false },
+    '/notifications': { ssr: false },
   },
   // 컴포넌트 자동 import — 폴더명 접두사 제거
   components: [

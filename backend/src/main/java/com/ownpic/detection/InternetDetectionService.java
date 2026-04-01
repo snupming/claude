@@ -91,40 +91,68 @@ public class InternetDetectionService {
             int scannedCount = 0;
 
             for (Image image : images) {
+                log.info("[Scan:{}] 이미지 {} 처리 시작 — name={}, gcsPath={}",
+                        scanId, image.getId(), image.getName(), image.getGcsPath());
+
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
                 float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
+                log.info("[Scan:{}] 이미지 {} 임베딩 — SSCD={}, DINO={}",
+                        scanId, image.getId(),
+                        sourceSSCD != null ? sourceSSCD.length + "dim" : "null",
+                        sourceDINO != null ? sourceDINO.length + "dim" : "null");
+
                 List<InternetDetectionResult> imageResults = new ArrayList<>();
 
                 // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 String keyword = buildSearchKeyword(image);
+                log.info("[Scan:{}] 이미지 {} 키워드 — '{}'", scanId, image.getId(), keyword);
+
                 if (keyword != null && !keyword.isBlank()) {
                     List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
+                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견", scanId, image.getId(), keywordResults.size());
 
+                    int naverMatches = 0;
                     for (SearchResult sr : keywordResults) {
                         InternetDetectionResult result = processSearchResult(
                                 scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
                         if (result != null) {
                             imageResults.add(result);
+                            naverMatches++;
                         }
                     }
+                    log.info("[Scan:{}] 이미지 {} 네이버 매칭 — {}건 (임계값 통과)", scanId, image.getId(), naverMatches);
+                } else {
+                    log.info("[Scan:{}] 이미지 {} 키워드 없음 — 네이버 검색 스킵", scanId, image.getId());
                 }
 
                 // 2단계: 구글 리버스 이미지 검색 (항상 실행)
                 if (image.getGcsPath() != null) {
                     byte[] imageBytes = storagePort.load(image.getGcsPath());
                     if (imageBytes != null && imageBytes.length > 0) {
+                        log.info("[Scan:{}] 이미지 {} 구글 리버스 검색 시작 — {}KB",
+                                scanId, image.getId(), imageBytes.length / 1024);
+
                         List<ReverseSearchResult> reverseResults =
                                 reverseSearchPort.searchByImage(imageBytes, MAX_SEARCH_RESULTS);
+                        log.info("[Scan:{}] 이미지 {} 구글 리버스 검색 — {}건 발견",
+                                scanId, image.getId(), reverseResults.size());
 
+                        int googleMatches = 0;
                         for (ReverseSearchResult rr : reverseResults) {
                             SearchResult sr = new SearchResult(rr.imageUrl(), rr.sourcePageUrl(), rr.title());
                             InternetDetectionResult result = processSearchResult(
                                     scanId, image.getId(), sr, sourceSSCD, sourceDINO, "GOOGLE");
                             if (result != null) {
                                 imageResults.add(result);
+                                googleMatches++;
                             }
                         }
+                        log.info("[Scan:{}] 이미지 {} 구글 매칭 — {}건 (임계값 통과)", scanId, image.getId(), googleMatches);
+                    } else {
+                        log.warn("[Scan:{}] 이미지 {} 스토리지 로드 실패 — gcsPath={}", scanId, image.getId(), image.getGcsPath());
                     }
+                } else {
+                    log.warn("[Scan:{}] 이미지 {} gcsPath 없음 — 구글 리버스 검색 스킵", scanId, image.getId());
                 }
 
                 // SSCD 스코어 높은 순 정렬 → 상위 20개만 유지
@@ -136,6 +164,8 @@ public class InternetDetectionService {
                 if (imageResults.size() > MAX_MATCHES_PER_IMAGE) {
                     imageResults = imageResults.subList(0, MAX_MATCHES_PER_IMAGE);
                 }
+                log.info("[Scan:{}] 이미지 {} 최종 — {}건 (상위 {}개 제한)",
+                        scanId, image.getId(), imageResults.size(), MAX_MATCHES_PER_IMAGE);
                 allResults.addAll(imageResults);
 
                 scannedCount++;

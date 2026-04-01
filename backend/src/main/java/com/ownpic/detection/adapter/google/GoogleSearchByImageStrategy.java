@@ -54,6 +54,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
 
     @Override
     public List<ReverseSearchResult> search(byte[] imageBytes, int maxResults) throws GoogleSearchException {
+        log.info("[SearchByImage] 요청 시작 — imageBytes={}KB", imageBytes.length / 1024);
         try {
             var multipart = MultipartBodyBuilder.build(imageBytes, "image.jpg");
 
@@ -72,11 +73,16 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
             String finalUrl = response.uri().toString();
             int status = response.statusCode();
 
+            log.info("[SearchByImage] 응답 — status={}, finalUrl={}, bodyLength={}",
+                    status, finalUrl, html.length());
+
             if (captchaDetector.isCaptchaResponse(html, finalUrl, status)) {
                 throw new GoogleSearchException("CAPTCHA detected on searchbyimage", true, status);
             }
 
             if (status != 200) {
+                log.warn("[SearchByImage] 비정상 상태 — status={}, body(500자)={}",
+                        status, html.substring(0, Math.min(html.length(), 500)));
                 throw new GoogleSearchException("Unexpected status: " + status, false, status);
             }
 
@@ -85,6 +91,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
         } catch (GoogleSearchException e) {
             throw e;
         } catch (Exception e) {
+            log.error("[SearchByImage] 요청 실패", e);
             throw new GoogleSearchException("searchbyimage request failed", e);
         }
     }
@@ -96,6 +103,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
 
         // Strategy 1: /imgres? links (most reliable)
         Elements imgresLinks = doc.select("a[href*=/imgres?]");
+        log.info("[SearchByImage] 파싱 — imgres 링크: {}개", imgresLinks.size());
         for (Element link : imgresLinks) {
             if (results.size() >= maxResults) break;
             ReverseSearchResult result = parseImgresLink(link);
@@ -107,6 +115,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
         // Strategy 2: data-ri result divs (image search grid)
         if (results.isEmpty()) {
             Elements resultDivs = doc.select("div[data-ri]");
+            log.info("[SearchByImage] 파싱 — data-ri div: {}개", resultDivs.size());
             for (Element div : resultDivs) {
                 if (results.size() >= maxResults) break;
                 ReverseSearchResult result = parseResultDiv(div);
@@ -119,6 +128,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
         // Strategy 3: isv-r class divs
         if (results.isEmpty()) {
             Elements isvDivs = doc.select("div.isv-r");
+            log.info("[SearchByImage] 파싱 — isv-r div: {}개", isvDivs.size());
             for (Element div : isvDivs) {
                 if (results.size() >= maxResults) break;
                 ReverseSearchResult result = parseResultDiv(div);
@@ -128,7 +138,12 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
             }
         }
 
-        log.debug("SearchByImage parsed {} results", results.size());
+        if (results.isEmpty()) {
+            log.warn("[SearchByImage] 파싱 결과 0건 — HTML title: {}, body(300자): {}",
+                    doc.title(), html.substring(0, Math.min(html.length(), 300)));
+        } else {
+            log.info("[SearchByImage] 파싱 완료 — {} 결과", results.size());
+        }
         return results;
     }
 
