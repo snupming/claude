@@ -16,9 +16,9 @@ import {
 useFadeIn()
 
 const stats = [
-  { value: '59,565건', label: '2024년 저작권법 위반 단속 건수\n(경찰청)' },
-  { value: '222%↑', label: '전년 대비 저작권 위반 사건 증가율\n(지재위)' },
-  { value: '104만건', label: '2024년 온라인 불법복제물 시정권고\n(문체부)' },
+  { value: '59,565건', label: '2024년 저작권법 위반 단속 건수 (경찰청)' },
+  { value: '222%↑', label: '전년 대비 저작권 위반 사건 증가율 (지재위)' },
+  { value: '104만건', label: '2024년 온라인 불법복제물 시정권고 (문체부)' },
 ]
 
 const problems = [
@@ -110,7 +110,7 @@ const plans = [
           </span>
         </h1>
 
-        <p class="fade-in fade-in-delay-2 mx-auto mb-9 max-w-xl text-lg leading-relaxed text-muted-foreground max-md:text-base">
+        <p class="fade-in fade-in-delay-2 mx-auto mb-9 max-w-2xl text-lg leading-relaxed text-muted-foreground max-md:text-base">
           온픽은 보이지 않는 디지털 각인으로 당신의 상품 이미지를 보호하고, 도용을 증명합니다.
         </p>
 
@@ -135,7 +135,7 @@ const plans = [
         <div class="fade-in mx-auto grid max-w-xl grid-cols-3 gap-8 max-md:grid-cols-1 max-md:gap-5">
           <div v-for="stat in stats" :key="stat.label" class="space-y-1.5">
             <p class="text-3xl font-extrabold text-primary">{{ stat.value }}</p>
-            <p class="whitespace-pre-line text-xs text-muted-foreground">{{ stat.label }}</p>
+            <p class="whitespace-nowrap text-xs text-muted-foreground">{{ stat.label }}</p>
           </div>
         </div>
       </div>
@@ -153,7 +153,7 @@ const plans = [
         <h2 class="fade-in fade-in-delay-1 mb-4 text-center text-3xl font-extrabold max-md:text-2xl">
           당신의 이미지, 지금 어디에서 쓰이고 있을까?
         </h2>
-        <p class="mx-auto mb-10 max-w-xl text-center text-base leading-relaxed text-muted-foreground">
+        <p class="mx-auto mb-10 max-w-2xl text-center text-base leading-relaxed text-muted-foreground">
           상품 이미지를 업로드하면 AI가 워터마크를 삽입하고, 인터넷에서 도용된 곳을 즉시 찾아냅니다.
         </p>
 

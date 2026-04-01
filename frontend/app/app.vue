@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sonner } from '@/components/ui/sonner'
+import { Toaster as Sonner } from '@/components/ui/sonner'
 
 const { initTheme } = useTheme()
 
