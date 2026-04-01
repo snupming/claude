@@ -12,6 +12,7 @@ const MAX_CONCURRENT = 3
 
 export function useImageUpload() {
   const queue = useState<UploadItem[]>('upload-queue', () => [])
+  const keywords = useState<string>('upload-keywords', () => '')
   const isUploading = computed(() => queue.value.some(item => item.status === 'uploading'))
 
   function addFiles(files: FileList | File[]) {
@@ -55,6 +56,9 @@ export function useImageUpload() {
 
     const formData = new FormData()
     formData.append('file', item.file)
+    if (keywords.value.trim()) {
+      formData.append('keywords', keywords.value.trim())
+    }
 
     try {
       await $fetch('/api/images/upload', {
@@ -80,6 +84,7 @@ export function useImageUpload() {
 
   function clear() {
     queue.value = []
+    keywords.value = ''
   }
 
   const hasFiles = computed(() => queue.value.length > 0)
@@ -88,6 +93,7 @@ export function useImageUpload() {
 
   return {
     queue,
+    keywords,
     isUploading,
     hasFiles,
     pendingCount,
