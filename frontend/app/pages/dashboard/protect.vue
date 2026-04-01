@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ShieldCheck, Upload, Image as ImageIcon, CheckCircle2, XCircle, Loader2, File as FileIcon, Trash2 } from 'lucide-vue-next'
+import { ShieldCheck, Upload, Image as ImageIcon, Loader2, Trash2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useImageUpload } from '@/composables/useImageUpload'
 
@@ -41,11 +41,17 @@ const totalPages = ref(0)
 const currentPage = ref(0)
 const filterStatus = ref<string | null>(null)
 
-// Upload Sheet
-const showUploadSheet = ref(false)
+// Upload Dialog
+const showUploadDialog = ref(false)
 const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const { queue, isUploading, hasFiles, pendingCount, successCount, addFiles, removeFile, uploadAll, clear } = useImageUpload()
+const { queue, isUploading, hasFiles, pendingCount, successCount, addFiles, uploadAll, clear } = useImageUpload()
+const errorCount = computed(() => queue.value.filter(i => i.status === 'error').length)
+const doneCount = computed(() => successCount.value + errorCount.value)
+const uploadProgress = computed(() => {
+  if (queue.value.length === 0) return 0
+  return Math.round((doneCount.value / queue.value.length) * 100)
+})
 
 async function fetchImages() {
   isLoading.value = true
@@ -87,15 +93,17 @@ function formatDate(dateStr: string) {
   })
 }
 
-function openUploadSheet() {
-  showUploadSheet.value = true
+function openUploadDialog() {
+  showUploadDialog.value = true
 }
 
-function onSheetClose() {
-  if (successCount.value > 0) {
-    fetchImages()
+function onUploadClose() {
+  if (!isUploading.value) {
+    if (successCount.value > 0) {
+      fetchImages()
+    }
+    clear()
   }
-  clear()
 }
 
 function onDragOver(e: DragEvent) {
@@ -125,6 +133,15 @@ function onFileSelect(e: Event) {
 
 async function handleUploadAll() {
   await uploadAll()
+  showUploadDialog.value = false
+  if (successCount.value > 0) {
+    toast.success(`${successCount.value}개 이미지 업로드 완료`)
+    fetchImages()
+  }
+  if (errorCount.value > 0) {
+    toast.error(`${errorCount.value}개 업로드 실패`)
+  }
+  clear()
 }
 
 const statusLabels: Record<string, { label: string; class: string }> = {
@@ -187,7 +204,13 @@ function thumbnailUrl(image: ImageItem): string | null {
   return `/api/images/file/${image.storagePath}`
 }
 
-onMounted(fetchImages)
+onMounted(() => {
+  fetchImages()
+  // 페이지 이탈 후 복귀 시 업로드 진행 중이면 다이얼로그 자동 열기
+  if (isUploading.value) {
+    showUploadDialog.value = true
+  }
+})
 </script>
 
 <template>
@@ -200,7 +223,7 @@ onMounted(fetchImages)
           상품 이미지에 비가시 워터마크를 삽입하여 보호합니다
         </p>
       </div>
-      <Button class="gap-2" @click="openUploadSheet">
+      <Button class="gap-2" @click="openUploadDialog">
         <Upload class="h-4 w-4" />
         이미지 업로드
       </Button>
@@ -339,7 +362,7 @@ onMounted(fetchImages)
               상품 이미지를 업로드하거나 스토어를 연동하면<br>AI가 자동으로 비가시 워터마크를 삽입합니다
             </p>
             <div class="mt-6 flex gap-3">
-              <Button class="gap-2" @click="openUploadSheet">
+              <Button class="gap-2" @click="openUploadDialog">
                 <Upload class="h-4 w-4" />
                 이미지 업로드
               </Button>
@@ -354,98 +377,71 @@ onMounted(fetchImages)
       </template>
     </div>
 
-    <!-- Upload Sheet -->
-    <Sheet v-model:open="showUploadSheet" @update:open="(v: boolean) => { if (!v) onSheetClose() }">
-      <SheetContent side="right" class="flex flex-col overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>이미지 업로드</SheetTitle>
-          <SheetDescription>
+    <!-- Upload Dialog -->
+    <Dialog v-model:open="showUploadDialog" @update:open="(v: boolean) => { if (!v) onUploadClose() }">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>이미지 업로드</DialogTitle>
+          <DialogDescription>
             JPEG, PNG, WebP 이미지를 업로드하세요. (최대 10MB)
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <!-- Drag & Drop Zone -->
-        <div
-          class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
-          :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
-          @dragover="onDragOver"
-          @dragleave="onDragLeave"
-          @drop="onDrop"
-        >
-          <Upload class="h-8 w-8 text-muted-foreground/50" />
-          <p class="mt-3 text-sm text-muted-foreground">
-            이미지를 여기에 드래그하거나
+        <!-- 업로드 진행 중: 프로그래스바 -->
+        <div v-if="isUploading || (hasFiles && doneCount > 0)" class="py-4">
+          <Progress :model-value="uploadProgress" class="h-2" />
+          <p class="mt-3 text-center text-sm text-muted-foreground">
+            {{ doneCount }} / {{ queue.length }} 완료
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            class="mt-2"
-            @click="fileInputRef?.click()"
-          >
-            파일 선택
-          </Button>
-          <input
-            ref="fileInputRef"
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/webp"
-            class="hidden"
-            @change="onFileSelect"
-          >
+          <p v-if="errorCount > 0" class="mt-1 text-center text-xs text-destructive">
+            {{ errorCount }}개 실패
+          </p>
         </div>
 
-        <!-- Upload Queue -->
-        <div v-if="hasFiles" class="mt-4 flex-1 space-y-2 overflow-y-auto">
+        <!-- 대기 중: 드래그 & 드롭 -->
+        <template v-else>
           <div
-            v-for="item in queue"
-            :key="item.id"
-            class="flex items-center gap-3 rounded-lg border border-border p-3"
+            class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
+            :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop="onDrop"
           >
-            <FileIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm">{{ item.file.name }}</p>
-              <p class="text-xs text-muted-foreground">{{ formatFileSize(item.file.size) }}</p>
-            </div>
-            <div class="shrink-0">
-              <Loader2 v-if="item.status === 'uploading'" class="h-4 w-4 animate-spin text-primary" />
-              <CheckCircle2 v-else-if="item.status === 'success'" class="h-4 w-4 text-green-500" />
-              <div v-else-if="item.status === 'error'" class="flex items-center gap-1">
-                <XCircle class="h-4 w-4 text-destructive" />
-              </div>
-              <button
-                v-else
-                class="text-xs text-muted-foreground hover:text-foreground"
-                @click="removeFile(item.id)"
-              >
-                삭제
-              </button>
+            <Upload class="h-8 w-8 text-muted-foreground/50" />
+            <p class="mt-3 text-sm text-muted-foreground">
+              이미지를 여기에 드래그하거나
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              class="mt-2"
+              @click="fileInputRef?.click()"
+            >
+              파일 선택
+            </Button>
+            <input
+              ref="fileInputRef"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp"
+              class="hidden"
+              @change="onFileSelect"
+            >
+          </div>
+
+          <!-- 파일 선택됨: 개수 + 업로드 버튼 -->
+          <div v-if="hasFiles" class="flex items-center justify-between">
+            <p class="text-sm text-muted-foreground">{{ pendingCount }}개 선택됨</p>
+            <div class="flex gap-2">
+              <Button variant="outline" size="sm" @click="clear">초기화</Button>
+              <Button size="sm" :disabled="pendingCount === 0" @click="handleUploadAll">
+                업로드 시작
+              </Button>
             </div>
           </div>
-        </div>
-
-        <!-- Error messages -->
-        <div v-for="item in queue.filter(i => i.error)" :key="'err-' + item.id" class="mt-1">
-          <p class="text-xs text-destructive">{{ item.file.name }}: {{ item.error }}</p>
-        </div>
-
-        <!-- Actions -->
-        <div v-if="hasFiles" class="mt-4 flex items-center justify-between border-t border-border pt-4">
-          <p class="text-sm text-muted-foreground">
-            <template v-if="successCount > 0">{{ successCount }}개 완료</template>
-            <template v-else>{{ pendingCount }}개 대기 중</template>
-          </p>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" @click="clear" :disabled="isUploading">
-              초기화
-            </Button>
-            <Button size="sm" :disabled="isUploading || pendingCount === 0" @click="handleUploadAll">
-              <Loader2 v-if="isUploading" class="mr-2 h-3 w-3 animate-spin" />
-              업로드 시작
-            </Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </template>
+      </DialogContent>
+    </Dialog>
 
     <!-- Delete Confirmation Dialog -->
     <Dialog v-model:open="showDeleteDialog">
