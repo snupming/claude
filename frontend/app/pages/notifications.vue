@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Bell, Check, Image, AlertTriangle, Store, Trash2 } from 'lucide-vue-next'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from '~/components/ui/skeleton'
 
 definePageMeta({
   layout: 'dashboard',

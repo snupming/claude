@@ -206,19 +206,19 @@ onMounted(fetchImages)
         이미지 업로드
       </Button>
       <input
-        ref="fileInputRef"
-        type="file"
-        multiple
-        accept="image/jpeg,image/png,image/webp"
-        class="hidden"
-        @change="onFileSelect"
+          ref="fileInputRef"
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+          @change="onFileSelect"
       >
     </div>
 
     <!-- Inline Upload Status (업로드 진행 중 or 파일 선택됨) -->
     <div
-      v-if="isUploading || hasFiles"
-      class="mt-6 rounded-lg border border-border bg-card p-5"
+        v-if="isUploading || hasFiles"
+        class="mt-6 rounded-lg border border-border bg-card p-5"
     >
       <template v-if="isUploading || doneCount > 0">
         <div class="flex items-center gap-4">
@@ -247,31 +247,31 @@ onMounted(fetchImages)
     <!-- Filter Tabs -->
     <div class="mt-6 flex items-center gap-1 border-b border-border">
       <button
-        class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-        :class="filterStatus === null ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
-        @click="setFilter(null)"
+          class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
+          :class="filterStatus === null ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="setFilter(null)"
       >
         전체
         <Badge v-if="totalElements > 0" variant="secondary" class="ml-1.5">{{ totalElements }}</Badge>
       </button>
       <button
-        class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-        :class="filterStatus === 'PROTECTED' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
-        @click="setFilter('PROTECTED')"
+          class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
+          :class="filterStatus === 'PROTECTED' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="setFilter('PROTECTED')"
       >
         보호됨
       </button>
       <button
-        class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-        :class="filterStatus === 'INDEXED' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
-        @click="setFilter('INDEXED')"
+          class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
+          :class="filterStatus === 'INDEXED' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="setFilter('INDEXED')"
       >
         인덱싱
       </button>
       <button
-        class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-        :class="filterStatus === 'PENDING' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
-        @click="setFilter('PENDING')"
+          class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
+          :class="filterStatus === 'PENDING' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="setFilter('PENDING')"
       >
         대기
       </button>
@@ -297,17 +297,17 @@ onMounted(fetchImages)
       <template v-else-if="images.length > 0">
         <div class="space-y-2">
           <div
-            v-for="image in images"
-            :key="image.id"
-            class="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
+              v-for="image in images"
+              :key="image.id"
+              class="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
           >
             <div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
               <img
-                v-if="thumbnailUrl(image)"
-                :src="thumbnailUrl(image)!"
-                :alt="image.name"
-                class="h-full w-full object-cover"
-                loading="lazy"
+                  v-if="thumbnailUrl(image)"
+                  :src="thumbnailUrl(image)!"
+                  :alt="image.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
               >
               <div v-else class="flex h-full w-full items-center justify-center">
                 <ImageIcon class="h-6 w-6 text-muted-foreground/50" />
@@ -326,14 +326,14 @@ onMounted(fetchImages)
 
             <div class="flex items-center gap-2">
               <Badge
-                variant="secondary"
-                :class="statusLabels[image.status]?.class"
+                  variant="secondary"
+                  :class="statusLabels[image.status]?.class"
               >
                 {{ statusLabels[image.status]?.label ?? image.status }}
               </Badge>
               <button
-                class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                @click.stop="confirmDelete(image)"
+                  class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  @click.stop="confirmDelete(image)"
               >
                 <Trash2 class="h-4 w-4" />
               </button>
@@ -344,10 +344,10 @@ onMounted(fetchImages)
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="mt-6 flex items-center justify-center gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            :disabled="currentPage === 0"
-            @click="currentPage--; fetchImages()"
+              variant="outline"
+              size="sm"
+              :disabled="currentPage === 0"
+              @click="currentPage--; fetchImages()"
           >
             이전
           </Button>
@@ -355,10 +355,10 @@ onMounted(fetchImages)
             {{ currentPage + 1 }} / {{ totalPages }}
           </span>
           <Button
-            variant="outline"
-            size="sm"
-            :disabled="currentPage >= totalPages - 1"
-            @click="currentPage++; fetchImages()"
+              variant="outline"
+              size="sm"
+              :disabled="currentPage >= totalPages - 1"
+              @click="currentPage++; fetchImages()"
           >
             다음
           </Button>
@@ -368,11 +368,11 @@ onMounted(fetchImages)
       <!-- Empty State — 드래그 & 드롭 통합 -->
       <template v-else>
         <Card
-          class="mt-4 transition-colors"
-          :class="isDragOver ? 'border-primary bg-primary/5' : ''"
-          @dragover="onDragOver"
-          @dragleave="onDragLeave"
-          @drop="onDrop"
+            class="mt-4 transition-colors"
+            :class="isDragOver ? 'border-primary bg-primary/5' : ''"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop="onDrop"
         >
           <CardContent class="flex flex-col items-center py-16">
             <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">

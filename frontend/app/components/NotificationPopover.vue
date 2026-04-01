@@ -136,7 +136,7 @@ function getIconColor(type: Notification['type']) {
       <!-- Footer: 전체보기 -->
       <div class="border-t border-border">
         <NuxtLink
-          to="/dashboard/notifications"
+          to="/notifications"
           class="block py-2.5 text-center text-xs font-medium text-primary transition-colors hover:bg-accent/30"
           @click="open = false"
         >

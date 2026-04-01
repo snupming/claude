@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Search, Globe, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, ExternalLink } from 'lucide-vue-next'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useDetection } from '@/composables/useDetection'
-import type { ScanInfo, ScanDetail } from '@/composables/useDetection'
+import { Skeleton } from '~/components/ui/skeleton'
+import { Progress } from '~/components/ui/progress'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { useDetection } from '~/composables/useDetection'
+import type { ScanInfo, ScanDetail } from '~/composables/useDetection'
 
 definePageMeta({
   layout: 'dashboard',
