@@ -41,8 +41,7 @@ const totalPages = ref(0)
 const currentPage = ref(0)
 const filterStatus = ref<string | null>(null)
 
-// Upload Dialog
-const showUploadDialog = ref(false)
+// Upload
 const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const { queue, isUploading, hasFiles, pendingCount, successCount, addFiles, uploadAll, clear } = useImageUpload()
@@ -93,19 +92,6 @@ function formatDate(dateStr: string) {
   })
 }
 
-function openUploadDialog() {
-  showUploadDialog.value = true
-}
-
-function onUploadClose() {
-  if (!isUploading.value) {
-    if (successCount.value > 0) {
-      fetchImages()
-    }
-    clear()
-  }
-}
-
 function onDragOver(e: DragEvent) {
   e.preventDefault()
   isDragOver.value = true
@@ -133,7 +119,6 @@ function onFileSelect(e: Event) {
 
 async function handleUploadAll() {
   await uploadAll()
-  showUploadDialog.value = false
   if (successCount.value > 0) {
     toast.success(`${successCount.value}개 이미지 업로드 완료`)
     fetchImages()
@@ -175,13 +160,11 @@ async function deleteImage() {
   const deletedId = deleteTarget.value.id
   try {
     await $fetch(`/api/images/${deletedId}`, { method: 'DELETE' })
-    // 목록에서 즉시 제거 (optimistic)
     images.value = images.value.filter(img => img.id !== deletedId)
     totalElements.value = Math.max(0, totalElements.value - 1)
     showDeleteDialog.value = false
     deleteTarget.value = null
     toast.success('삭제되었습니다')
-    // 백그라운드에서 목록 동기화 (스켈레톤 없이)
     try {
       const params: Record<string, string> = { page: String(currentPage.value), size: '20' }
       if (filterStatus.value) params.status = filterStatus.value
@@ -204,13 +187,7 @@ function thumbnailUrl(image: ImageItem): string | null {
   return `/api/images/file/${image.storagePath}`
 }
 
-onMounted(() => {
-  fetchImages()
-  // 페이지 이탈 후 복귀 시 업로드 진행 중이면 다이얼로그 자동 열기
-  if (isUploading.value) {
-    showUploadDialog.value = true
-  }
-})
+onMounted(fetchImages)
 </script>
 
 <template>
@@ -223,10 +200,62 @@ onMounted(() => {
           상품 이미지에 비가시 워터마크를 삽입하여 보호합니다
         </p>
       </div>
-      <Button class="gap-2" @click="openUploadDialog">
+      <Button class="gap-2" @click="fileInputRef?.click()">
         <Upload class="h-4 w-4" />
         이미지 업로드
       </Button>
+      <input
+        ref="fileInputRef"
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp"
+        class="hidden"
+        @change="onFileSelect"
+      >
+    </div>
+
+    <!-- Inline Upload Area -->
+    <div
+      v-if="isUploading || hasFiles"
+      class="mt-6 rounded-lg border border-border bg-card p-5"
+    >
+      <!-- 업로드 진행 중 -->
+      <template v-if="isUploading || doneCount > 0">
+        <div class="flex items-center gap-4">
+          <div class="min-w-0 flex-1">
+            <Progress :model-value="uploadProgress" class="h-2" />
+          </div>
+          <p class="shrink-0 text-sm text-muted-foreground">
+            {{ doneCount }} / {{ queue.length }}
+          </p>
+        </div>
+        <p v-if="errorCount > 0" class="mt-2 text-xs text-destructive">
+          {{ errorCount }}개 실패
+        </p>
+      </template>
+
+      <!-- 파일 선택됨, 업로드 대기 -->
+      <template v-else>
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-muted-foreground">{{ pendingCount }}개 이미지 선택됨</p>
+          <div class="flex gap-2">
+            <Button variant="outline" size="sm" @click="clear">초기화</Button>
+            <Button size="sm" @click="handleUploadAll">업로드 시작</Button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Drop Zone (파일 없고 업로드 중 아닐 때 — 드래그 가이드) -->
+    <div
+      v-else
+      class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed p-4 transition-colors"
+      :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
+      @dragover="onDragOver"
+      @dragleave="onDragLeave"
+      @drop="onDrop"
+    >
+      <p class="text-sm text-muted-foreground">이미지를 여기에 드래그하여 업로드</p>
     </div>
 
     <!-- Filter Tabs -->
@@ -362,7 +391,7 @@ onMounted(() => {
               상품 이미지를 업로드하거나 스토어를 연동하면<br>AI가 자동으로 비가시 워터마크를 삽입합니다
             </p>
             <div class="mt-6 flex gap-3">
-              <Button class="gap-2" @click="openUploadDialog">
+              <Button class="gap-2" @click="fileInputRef?.click()">
                 <Upload class="h-4 w-4" />
                 이미지 업로드
               </Button>
@@ -376,72 +405,6 @@ onMounted(() => {
         </Card>
       </template>
     </div>
-
-    <!-- Upload Dialog -->
-    <Dialog v-model:open="showUploadDialog" @update:open="(v: boolean) => { if (!v) onUploadClose() }">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>이미지 업로드</DialogTitle>
-          <DialogDescription>
-            JPEG, PNG, WebP 이미지를 업로드하세요. (최대 10MB)
-          </DialogDescription>
-        </DialogHeader>
-
-        <!-- 업로드 진행 중: 프로그래스바 -->
-        <div v-if="isUploading || (hasFiles && doneCount > 0)" class="py-4">
-          <Progress :model-value="uploadProgress" class="h-2" />
-          <p class="mt-3 text-center text-sm text-muted-foreground">
-            {{ doneCount }} / {{ queue.length }} 완료
-          </p>
-          <p v-if="errorCount > 0" class="mt-1 text-center text-xs text-destructive">
-            {{ errorCount }}개 실패
-          </p>
-        </div>
-
-        <!-- 대기 중: 드래그 & 드롭 -->
-        <template v-else>
-          <div
-            class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors"
-            :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
-            @dragover="onDragOver"
-            @dragleave="onDragLeave"
-            @drop="onDrop"
-          >
-            <Upload class="h-8 w-8 text-muted-foreground/50" />
-            <p class="mt-3 text-sm text-muted-foreground">
-              이미지를 여기에 드래그하거나
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              class="mt-2"
-              @click="fileInputRef?.click()"
-            >
-              파일 선택
-            </Button>
-            <input
-              ref="fileInputRef"
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              class="hidden"
-              @change="onFileSelect"
-            >
-          </div>
-
-          <!-- 파일 선택됨: 개수 + 업로드 버튼 -->
-          <div v-if="hasFiles" class="flex items-center justify-between">
-            <p class="text-sm text-muted-foreground">{{ pendingCount }}개 선택됨</p>
-            <div class="flex gap-2">
-              <Button variant="outline" size="sm" @click="clear">초기화</Button>
-              <Button size="sm" :disabled="pendingCount === 0" @click="handleUploadAll">
-                업로드 시작
-              </Button>
-            </div>
-          </div>
-        </template>
-      </DialogContent>
-    </Dialog>
 
     <!-- Delete Confirmation Dialog -->
     <Dialog v-model:open="showDeleteDialog">
