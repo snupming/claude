@@ -95,9 +95,8 @@ public class InternetDetectionService {
 
                 // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 String keyword = buildSearchKeyword(image);
-                List<SearchResult> keywordResults = List.of();
                 if (keyword != null && !keyword.isBlank()) {
-                    keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
+                    List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
 
                     for (SearchResult sr : keywordResults) {
                         InternetDetectionResult result = processSearchResult(
@@ -108,8 +107,8 @@ public class InternetDetectionService {
                     }
                 }
 
-                // 2단계: 키워드 결과가 없으면 구글 리버스 이미지 검색
-                if (keywordResults.isEmpty() && image.getGcsPath() != null) {
+                // 2단계: 구글 리버스 이미지 검색 (항상 실행)
+                if (image.getGcsPath() != null) {
                     byte[] imageBytes = storagePort.load(image.getGcsPath());
                     if (imageBytes != null && imageBytes.length > 0) {
                         List<ReverseSearchResult> reverseResults =
