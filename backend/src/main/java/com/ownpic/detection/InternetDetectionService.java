@@ -32,6 +32,7 @@ public class InternetDetectionService {
     private static final double SSCD_MIN_FOR_DINO = 0.15;
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
+    private static final int MAX_MATCHES_PER_IMAGE = 20;
 
     private final DetectionScanRepository scanRepository;
     private final InternetDetectionResultRepository resultRepository;
@@ -92,24 +93,24 @@ public class InternetDetectionService {
             for (Image image : images) {
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
                 float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
+                List<InternetDetectionResult> imageResults = new ArrayList<>();
 
                 // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 String keyword = buildSearchKeyword(image);
-                List<SearchResult> keywordResults = List.of();
                 if (keyword != null && !keyword.isBlank()) {
-                    keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
+                    List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
 
                     for (SearchResult sr : keywordResults) {
                         InternetDetectionResult result = processSearchResult(
                                 scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
                         if (result != null) {
-                            allResults.add(result);
+                            imageResults.add(result);
                         }
                     }
                 }
 
-                // 2단계: 키워드 결과가 없으면 구글 리버스 이미지 검색
-                if (keywordResults.isEmpty() && image.getGcsPath() != null) {
+                // 2단계: 구글 리버스 이미지 검색 (항상 실행)
+                if (image.getGcsPath() != null) {
                     byte[] imageBytes = storagePort.load(image.getGcsPath());
                     if (imageBytes != null && imageBytes.length > 0) {
                         List<ReverseSearchResult> reverseResults =
@@ -120,11 +121,22 @@ public class InternetDetectionService {
                             InternetDetectionResult result = processSearchResult(
                                     scanId, image.getId(), sr, sourceSSCD, sourceDINO, "GOOGLE");
                             if (result != null) {
-                                allResults.add(result);
+                                imageResults.add(result);
                             }
                         }
                     }
                 }
+
+                // SSCD 스코어 높은 순 정렬 → 상위 20개만 유지
+                imageResults.sort((a, b) -> {
+                    double scoreA = a.getSscdSimilarity() != null ? a.getSscdSimilarity() : 0;
+                    double scoreB = b.getSscdSimilarity() != null ? b.getSscdSimilarity() : 0;
+                    return Double.compare(scoreB, scoreA);
+                });
+                if (imageResults.size() > MAX_MATCHES_PER_IMAGE) {
+                    imageResults = imageResults.subList(0, MAX_MATCHES_PER_IMAGE);
+                }
+                allResults.addAll(imageResults);
 
                 scannedCount++;
                 updateProgress(scanId, scannedCount);
@@ -189,7 +201,7 @@ public class InternetDetectionService {
 
     /**
      * 이미지의 검색 키워드를 결정한다.
-     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → 파일명 (최후 수단)
+     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → null (리버스 이미지 검색으로 fallback)
      */
     private String buildSearchKeyword(Image image) {
         // 1. 사용자가 직접 입력한 키워드
@@ -205,7 +217,6 @@ public class InternetDetectionService {
                     String caption = captionPort.generateKeywords(imageBytes);
                     if (caption != null && !caption.isBlank()) {
                         log.info("AI-generated keywords for image {}: {}", image.getId(), caption);
-                        // 생성된 키워드를 DB에 캐싱 (다음 스캔 시 재사용)
                         image.setKeywords(caption);
                         imageRepository.save(image);
                         return caption;
@@ -216,12 +227,8 @@ public class InternetDetectionService {
             }
         }
 
-        // 3. 파일명에서 키워드 추출 (최후 수단)
-        String name = image.getName();
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        String fallback = name.replaceAll("[_\\-]+", " ").trim();
-        return fallback.isEmpty() ? null : fallback;
+        // 키워드 없으면 null → 키워드 검색 스킵, 리버스 이미지 검색으로 진행
+        return null;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
