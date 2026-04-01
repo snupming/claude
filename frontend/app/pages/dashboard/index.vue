@@ -209,10 +209,10 @@ onMounted(fetchStores)
               상품 이미지를 업로드하면 AI가 자동으로 비가시 워터마크를 삽입하고, 인터넷에서 도용 여부를 탐지합니다.
             </p>
             <div class="mt-4 flex gap-3">
-              <NuxtLink to="/dashboard/protect">
+              <NuxtLink to="/protect">
                 <Button size="sm">이미지 보호하기</Button>
               </NuxtLink>
-              <NuxtLink to="/dashboard/detect">
+              <NuxtLink to="/detect">
                 <Button variant="outline" size="sm">도용 탐지하기</Button>
               </NuxtLink>
             </div>

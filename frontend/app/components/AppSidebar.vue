@@ -23,8 +23,8 @@ const { user } = useAuth()
 /* 메인 네비게이션 */
 const mainNav = [
   { label: '대시보드', icon: LayoutDashboard, to: '/dashboard' },
-  { label: '이미지 보호', icon: ShieldCheck, to: '/dashboard/protect' },
-  { label: '도용 탐지', icon: Search, to: '/dashboard/detect' },
+  { label: '이미지 보호', icon: ShieldCheck, to: '/protect' },
+  { label: '도용 탐지', icon: Search, to: '/detect' },
 ]
 
 /* 현재 라우트와 매칭 */
