@@ -40,6 +40,7 @@ const totalElements = ref(0)
 const totalPages = ref(0)
 const currentPage = ref(0)
 const filterStatus = ref<string | null>(null)
+const hasImages = computed(() => images.value.length > 0 || totalElements.value > 0)
 
 // Upload
 const isDragOver = ref(false)
@@ -200,7 +201,7 @@ onMounted(fetchImages)
           상품 이미지에 비가시 워터마크를 삽입하여 보호합니다
         </p>
       </div>
-      <Button class="gap-2" @click="fileInputRef?.click()">
+      <Button v-if="hasImages" class="gap-2" @click="fileInputRef?.click()">
         <Upload class="h-4 w-4" />
         이미지 업로드
       </Button>
@@ -214,12 +215,11 @@ onMounted(fetchImages)
       >
     </div>
 
-    <!-- Inline Upload Area -->
+    <!-- Inline Upload Status (업로드 진행 중 or 파일 선택됨) -->
     <div
       v-if="isUploading || hasFiles"
       class="mt-6 rounded-lg border border-border bg-card p-5"
     >
-      <!-- 업로드 진행 중 -->
       <template v-if="isUploading || doneCount > 0">
         <div class="flex items-center gap-4">
           <div class="min-w-0 flex-1">
@@ -233,8 +233,6 @@ onMounted(fetchImages)
           {{ errorCount }}개 실패
         </p>
       </template>
-
-      <!-- 파일 선택됨, 업로드 대기 -->
       <template v-else>
         <div class="flex items-center justify-between">
           <p class="text-sm text-muted-foreground">{{ pendingCount }}개 이미지 선택됨</p>
@@ -244,18 +242,6 @@ onMounted(fetchImages)
           </div>
         </div>
       </template>
-    </div>
-
-    <!-- Drop Zone (파일 없고 업로드 중 아닐 때 — 드래그 가이드) -->
-    <div
-      v-else
-      class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed p-4 transition-colors"
-      :class="isDragOver ? 'border-primary bg-primary/5' : 'border-border'"
-      @dragover="onDragOver"
-      @dragleave="onDragLeave"
-      @drop="onDrop"
-    >
-      <p class="text-sm text-muted-foreground">이미지를 여기에 드래그하여 업로드</p>
     </div>
 
     <!-- Filter Tabs -->
@@ -379,16 +365,22 @@ onMounted(fetchImages)
         </div>
       </template>
 
-      <!-- Empty State -->
+      <!-- Empty State — 드래그 & 드롭 통합 -->
       <template v-else>
-        <Card class="mt-4">
+        <Card
+          class="mt-4 transition-colors"
+          :class="isDragOver ? 'border-primary bg-primary/5' : ''"
+          @dragover="onDragOver"
+          @dragleave="onDragLeave"
+          @drop="onDrop"
+        >
           <CardContent class="flex flex-col items-center py-16">
             <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
               <ShieldCheck class="h-7 w-7 text-primary" />
             </div>
             <h3 class="mt-4 text-lg font-semibold">이미지를 업로드하세요</h3>
             <p class="mt-1.5 text-center text-sm text-muted-foreground">
-              상품 이미지를 업로드하거나 스토어를 연동하면<br>AI가 자동으로 비가시 워터마크를 삽입합니다
+              상품 이미지를 드래그하거나 아래 버튼으로 업로드하면<br>AI가 자동으로 비가시 워터마크를 삽입합니다
             </p>
             <div class="mt-6 flex gap-3">
               <Button class="gap-2" @click="fileInputRef?.click()">
