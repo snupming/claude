@@ -139,4 +139,87 @@ describe('useDetection', () => {
 
     expect(activeScan.value?.status).toBe('SCANNING')
   })
+
+  it('resumeIfActive syncs stale SCANNING to COMPLETED on SPA return', async () => {
+    const { resumeIfActive, activeScan } = useDetection()
+    activeScan.value = { ...mockScan, status: 'SCANNING' }
+
+    mockFetch.mockResolvedValueOnce({
+      content: [{ ...mockScan, status: 'COMPLETED', scannedImages: 10, progress: 100, completedAt: new Date().toISOString() }],
+      totalElements: 1,
+      totalPages: 1,
+      number: 0,
+      size: 1,
+    } as ScansPage)
+
+    await resumeIfActive()
+
+    expect(activeScan.value?.status).toBe('COMPLETED')
+  })
+
+  it('resumeIfActive syncs stale PENDING to FAILED on SPA return', async () => {
+    const { resumeIfActive, activeScan } = useDetection()
+    activeScan.value = { ...mockScan, status: 'PENDING' }
+
+    mockFetch.mockResolvedValueOnce({
+      content: [{ ...mockScan, status: 'FAILED', completedAt: new Date().toISOString() }],
+      totalElements: 1,
+      totalPages: 1,
+      number: 0,
+      size: 1,
+    } as ScansPage)
+
+    await resumeIfActive()
+
+    expect(activeScan.value?.status).toBe('FAILED')
+  })
+
+  it('resumeIfActive shows recently completed scan on fresh load', async () => {
+    const { resumeIfActive, activeScan } = useDetection()
+
+    mockFetch.mockResolvedValueOnce({
+      content: [{ ...mockScan, status: 'COMPLETED', scannedImages: 10, progress: 100, completedAt: new Date().toISOString() }],
+      totalElements: 1,
+      totalPages: 1,
+      number: 0,
+      size: 1,
+    } as ScansPage)
+
+    await resumeIfActive()
+
+    expect(activeScan.value?.status).toBe('COMPLETED')
+  })
+
+  it('resumeIfActive ignores old completed scan on fresh load', async () => {
+    const { resumeIfActive, activeScan } = useDetection()
+
+    mockFetch.mockResolvedValueOnce({
+      content: [{ ...mockScan, status: 'COMPLETED', completedAt: '2025-01-01T00:00:00Z' }],
+      totalElements: 1,
+      totalPages: 1,
+      number: 0,
+      size: 1,
+    } as ScansPage)
+
+    await resumeIfActive()
+
+    expect(activeScan.value).toBeNull()
+  })
+
+  it('resumeIfActive clears stale state when no scans exist', async () => {
+    const { resumeIfActive, activeScan } = useDetection()
+    activeScan.value = { ...mockScan, status: 'SCANNING' }
+
+    mockFetch.mockResolvedValueOnce({
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      number: 0,
+      size: 1,
+    } as ScansPage)
+
+    await resumeIfActive()
+
+    expect(activeScan.value).toBeNull()
+  })
 })

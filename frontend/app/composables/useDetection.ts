@@ -109,7 +109,19 @@ export function useDetection() {
         if (latest.status === 'SCANNING' || latest.status === 'PENDING') {
           activeScan.value = latest
           startPolling(latest.id)
+        } else if (activeScan.value?.status === 'SCANNING' || activeScan.value?.status === 'PENDING') {
+          // SPA 복귀: stale SCANNING → 실제 COMPLETED/FAILED로 동기화
+          activeScan.value = latest
+        } else if (!activeScan.value && latest.completedAt) {
+          // 새로고침 복귀: 최근 완료 스캔이면 배너 표시 (5분 이내)
+          const completedAt = new Date(latest.completedAt).getTime()
+          if (Date.now() - completedAt < 5 * 60 * 1000) {
+            activeScan.value = latest
+          }
         }
+      } else if (activeScan.value) {
+        // 스캔 없으면 stale state 정리
+        activeScan.value = null
       }
     } catch {
       // ignore
