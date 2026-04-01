@@ -47,6 +47,7 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
 
     @Override
     public List<ReverseSearchResult> search(byte[] imageBytes, int maxResults) throws GoogleSearchException {
+        log.info("[LensUpload] 요청 시작 — imageBytes={}KB", imageBytes.length / 1024);
         try {
             var multipart = MultipartBodyBuilder.build(imageBytes, "image.jpg");
 
@@ -67,19 +68,27 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
             String finalUrl = response.uri().toString();
             int status = response.statusCode();
 
+            log.info("[LensUpload] 응답 — status={}, finalUrl={}, bodyLength={}",
+                    status, finalUrl, html.length());
+
             if (captchaDetector.isCaptchaResponse(html, finalUrl, status)) {
                 throw new GoogleSearchException("CAPTCHA detected on Lens upload", true, status);
             }
 
             if (status != 200) {
+                log.warn("[LensUpload] 비정상 상태 — status={}, body(500자)={}",
+                        status, html.substring(0, Math.min(html.length(), 500)));
                 throw new GoogleSearchException("Lens upload unexpected status: " + status, false, status);
             }
 
-            return dataExtractor.extract(html, maxResults);
+            List<ReverseSearchResult> results = dataExtractor.extract(html, maxResults);
+            log.info("[LensUpload] 완료 — {} 결과", results.size());
+            return results;
 
         } catch (GoogleSearchException e) {
             throw e;
         } catch (Exception e) {
+            log.error("[LensUpload] 요청 실패", e);
             throw new GoogleSearchException("Lens upload request failed", e);
         }
     }

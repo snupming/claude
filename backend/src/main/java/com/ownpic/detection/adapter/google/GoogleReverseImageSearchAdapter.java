@@ -30,39 +30,48 @@ public class GoogleReverseImageSearchAdapter implements ReverseImageSearchPort {
         this.strategies = List.of(searchByImage, lensUpload);
         this.rateLimiter = rateLimiter;
         this.failureThreshold = props.consecutiveFailureThreshold();
+        log.info("Google reverse image search ENABLED — strategies: {}, failureThreshold: {}",
+                strategies.stream().map(GoogleReverseImageSearchStrategy::name).toList(), failureThreshold);
     }
 
     @Override
     public List<ReverseSearchResult> searchByImage(byte[] imageBytes, int maxResults) {
+        log.info("[Google] searchByImage 시작 — imageBytes={}KB, maxResults={}", imageBytes.length / 1024, maxResults);
+
         if (!rateLimiter.tryAcquire()) {
+            log.warn("[Google] Rate limit 초과 — 요청 거부됨");
             return List.of();
         }
 
         try {
             int strategyIdx = activeStrategyIndex.get();
             GoogleReverseImageSearchStrategy strategy = strategies.get(strategyIdx);
+            log.info("[Google] 전략 선택: {} (index={})", strategy.name(), strategyIdx);
 
             try {
                 List<ReverseSearchResult> results = strategy.search(imageBytes, maxResults);
                 consecutiveFailures.set(0);
+                log.info("[Google] {} 완료 — {} 결과", strategy.name(), results.size());
                 return results;
 
             } catch (GoogleSearchException e) {
                 if (e.isCaptcha()) {
                     int failures = consecutiveFailures.incrementAndGet();
-                    log.warn("{} CAPTCHA detected ({}/{})", strategy.name(), failures, failureThreshold);
+                    log.warn("[Google] {} CAPTCHA 감지 ({}/{}) — status={}",
+                            strategy.name(), failures, failureThreshold, e.getStatusCode());
 
                     if (failures >= failureThreshold) {
                         switchStrategy(strategyIdx);
                         return retryWithFallback(imageBytes, maxResults);
                     }
                 } else {
-                    log.warn("{} error: {}", strategy.name(), e.getMessage());
+                    log.warn("[Google] {} 에러 — status={}, message={}",
+                            strategy.name(), e.getStatusCode(), e.getMessage());
                 }
                 return List.of();
             }
         } catch (Exception e) {
-            log.error("Unexpected error in Google reverse image search", e);
+            log.error("[Google] 예상치 못한 에러", e);
             return List.of();
         } finally {
             rateLimiter.release();
@@ -72,13 +81,14 @@ public class GoogleReverseImageSearchAdapter implements ReverseImageSearchPort {
 
     private List<ReverseSearchResult> retryWithFallback(byte[] imageBytes, int maxResults) {
         GoogleReverseImageSearchStrategy fallback = strategies.get(activeStrategyIndex.get());
+        log.info("[Google] Fallback 전략: {}", fallback.name());
         try {
             List<ReverseSearchResult> results = fallback.search(imageBytes, maxResults);
             consecutiveFailures.set(0);
-            log.info("Fallback to {} succeeded", fallback.name());
+            log.info("[Google] Fallback {} 성공 — {} 결과", fallback.name(), results.size());
             return results;
         } catch (Exception e) {
-            log.error("Fallback strategy {} also failed: {}", fallback.name(), e.getMessage());
+            log.error("[Google] Fallback {} 실패: {}", fallback.name(), e.getMessage());
             return List.of();
         }
     }
