@@ -42,6 +42,7 @@ public class InternetDetectionService {
     private final ImageStoragePort storagePort;
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
+    private final ImageCaptionPort captionPort;
 
     public InternetDetectionService(DetectionScanRepository scanRepository,
                                     InternetDetectionResultRepository resultRepository,
@@ -51,7 +52,8 @@ public class InternetDetectionService {
                                     ExternalImageDownloadPort downloadPort,
                                     ImageStoragePort storagePort,
                                     SscdEmbeddingPort sscdPort,
-                                    DinoEmbeddingPort dinoPort) {
+                                    DinoEmbeddingPort dinoPort,
+                                    ImageCaptionPort captionPort) {
         this.scanRepository = scanRepository;
         this.resultRepository = resultRepository;
         this.imageRepository = imageRepository;
@@ -61,6 +63,7 @@ public class InternetDetectionService {
         this.storagePort = storagePort;
         this.sscdPort = sscdPort;
         this.dinoPort = dinoPort;
+        this.captionPort = captionPort;
     }
 
     @Transactional
@@ -90,15 +93,18 @@ public class InternetDetectionService {
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
                 float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
 
-                // 1단계: 네이버 키워드 검색
+                // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 String keyword = buildSearchKeyword(image);
-                List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
+                List<SearchResult> keywordResults = List.of();
+                if (keyword != null && !keyword.isBlank()) {
+                    keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
 
-                for (SearchResult sr : keywordResults) {
-                    InternetDetectionResult result = processSearchResult(
-                            scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
-                    if (result != null) {
-                        allResults.add(result);
+                    for (SearchResult sr : keywordResults) {
+                        InternetDetectionResult result = processSearchResult(
+                                scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
+                        if (result != null) {
+                            allResults.add(result);
+                        }
                     }
                 }
 
@@ -182,19 +188,35 @@ public class InternetDetectionService {
     }
 
     /**
-     * 이미지의 이름/키워드에서 검색어를 생성한다.
-     * keywords 필드가 있으면 우선 사용, 없으면 파일명에서 확장자 제거 후 사용.
+     * 이미지의 검색 키워드를 결정한다.
+     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → null (키워드 검색 스킵)
      */
     private String buildSearchKeyword(Image image) {
+        // 1. 사용자가 직접 입력한 키워드
         if (image.getKeywords() != null && !image.getKeywords().isBlank()) {
             return image.getKeywords();
         }
-        // 파일명에서 확장자 제거
-        String name = image.getName();
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) name = name.substring(0, dot);
-        // 언더스코어/하이픈을 공백으로
-        return name.replaceAll("[_\\-]+", " ").trim();
+
+        // 2. AI Vision으로 이미지 내용 추론하여 키워드 생성
+        if (image.getGcsPath() != null) {
+            try {
+                byte[] imageBytes = storagePort.load(image.getGcsPath());
+                if (imageBytes != null && imageBytes.length > 0) {
+                    String caption = captionPort.generateKeywords(imageBytes);
+                    if (caption != null && !caption.isBlank()) {
+                        log.info("AI-generated keywords for image {}: {}", image.getId(), caption);
+                        // 생성된 키워드를 DB에 캐싱 (다음 스캔 시 재사용)
+                        image.setKeywords(caption);
+                        imageRepository.save(image);
+                        return caption;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to generate AI keywords for image {}: {}", image.getId(), e.getMessage());
+            }
+        }
+
+        return null;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

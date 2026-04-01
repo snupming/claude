@@ -45,7 +45,7 @@ const hasImages = computed(() => images.value.length > 0 || totalElements.value 
 // Upload
 const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const { queue, isUploading, hasFiles, pendingCount, successCount, addFiles, uploadAll, clear } = useImageUpload()
+const { queue, keywords, isUploading, hasFiles, pendingCount, successCount, addFiles, uploadAll, clear } = useImageUpload()
 const errorCount = computed(() => queue.value.filter(i => i.status === 'error').length)
 const doneCount = computed(() => successCount.value + errorCount.value)
 const uploadProgress = computed(() => {
@@ -234,12 +234,20 @@ onMounted(fetchImages)
         </p>
       </template>
       <template v-else>
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">{{ pendingCount }}개 이미지 선택됨</p>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" @click="clear">초기화</Button>
-            <Button size="sm" @click="handleUploadAll">업로드 시작</Button>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-muted-foreground">{{ pendingCount }}개 이미지 선택됨</p>
+            <div class="flex gap-2">
+              <Button variant="outline" size="sm" @click="clear">초기화</Button>
+              <Button size="sm" @click="handleUploadAll">업로드 시작</Button>
+            </div>
           </div>
+          <input
+            v-model="keywords"
+            type="text"
+            placeholder="검색 키워드 (선택) — 입력하지 않으면 AI가 자동 생성"
+            class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          >
         </div>
       </template>
     </div>
