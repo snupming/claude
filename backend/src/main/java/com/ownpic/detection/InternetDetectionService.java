@@ -32,6 +32,7 @@ public class InternetDetectionService {
     private static final double SSCD_MIN_FOR_DINO = 0.15;
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
+    private static final int MAX_MATCHES_PER_IMAGE = 20;
 
     private final DetectionScanRepository scanRepository;
     private final InternetDetectionResultRepository resultRepository;
@@ -92,6 +93,7 @@ public class InternetDetectionService {
             for (Image image : images) {
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
                 float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
+                List<InternetDetectionResult> imageResults = new ArrayList<>();
 
                 // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 String keyword = buildSearchKeyword(image);
@@ -102,7 +104,7 @@ public class InternetDetectionService {
                         InternetDetectionResult result = processSearchResult(
                                 scanId, image.getId(), sr, sourceSSCD, sourceDINO, "NAVER");
                         if (result != null) {
-                            allResults.add(result);
+                            imageResults.add(result);
                         }
                     }
                 }
@@ -119,11 +121,22 @@ public class InternetDetectionService {
                             InternetDetectionResult result = processSearchResult(
                                     scanId, image.getId(), sr, sourceSSCD, sourceDINO, "GOOGLE");
                             if (result != null) {
-                                allResults.add(result);
+                                imageResults.add(result);
                             }
                         }
                     }
                 }
+
+                // SSCD 스코어 높은 순 정렬 → 상위 20개만 유지
+                imageResults.sort((a, b) -> {
+                    double scoreA = a.getSscdSimilarity() != null ? a.getSscdSimilarity() : 0;
+                    double scoreB = b.getSscdSimilarity() != null ? b.getSscdSimilarity() : 0;
+                    return Double.compare(scoreB, scoreA);
+                });
+                if (imageResults.size() > MAX_MATCHES_PER_IMAGE) {
+                    imageResults = imageResults.subList(0, MAX_MATCHES_PER_IMAGE);
+                }
+                allResults.addAll(imageResults);
 
                 scannedCount++;
                 updateProgress(scanId, scannedCount);
