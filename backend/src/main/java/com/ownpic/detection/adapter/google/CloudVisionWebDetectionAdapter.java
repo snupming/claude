@@ -97,7 +97,7 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
             List<ReverseSearchResult> results = new ArrayList<>();
             Set<String> seen = new HashSet<>();
 
-            // ★ 1순위: pagesWithMatchingImages (페이지 URL + 제목이 있는 결과)
+            // ★ 1순위: pagesWithMatchingImages — fullMatch만 (partialMatch는 "함께 보면 좋은 상품" 등 추천 이미지일 가능성 높아 제외)
             for (WebDetection.WebPage page : web.getPagesWithMatchingImagesList()) {
                 if (results.size() >= maxResults) break;
                 String pageUrl = page.getUrl();
@@ -108,12 +108,7 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
                         results.add(new ReverseSearchResult(img.getUrl(), pageUrl, title, bestGuessLabel, topEntity));
                     }
                 }
-                for (WebDetection.WebImage img : page.getPartialMatchingImagesList()) {
-                    if (results.size() >= maxResults) break;
-                    if (seen.add(img.getUrl())) {
-                        results.add(new ReverseSearchResult(img.getUrl(), pageUrl, title, bestGuessLabel, topEntity));
-                    }
-                }
+                // partialMatch는 제외 — 추천 상품/관련 상품 섹션의 유사 이미지일 가능성 높음
             }
             log.info("[CloudVision] 매칭 페이지: {}건 (URL+제목 포함)", web.getPagesWithMatchingImagesCount());
 
