@@ -93,6 +93,31 @@ function scanTypeLabel(scanType: string) {
   return scanType === 'INTERNET' ? '인터넷 탐지' : 'DB 탐지'
 }
 
+// 유사도 70% 이상 + dead page 제외 + 판매자 정보 있는 것만 + 높은 순 정렬
+const filteredInternetResults = computed(() => {
+  if (!selectedDetail.value) return []
+  return selectedDetail.value.internetResults
+    .filter((r) => {
+      // 유사도 70% 이상
+      const maxSim = Math.max(r.sscdSimilarity ?? 0, r.dinoSimilarity ?? 0)
+      if (maxSim < 0.7) return false
+
+      // dead page 필터 (sourcePageUrl 없고 foundImageUrl만 있는 경우)
+      if (!r.sourcePageUrl && !r.sellerName) return false
+
+      // 판매자 정보 있는 것만
+      const hasSellerInfo = r.sellerName || r.businessRegNumber || r.representativeName || r.sourcePageTitle
+      if (!hasSellerInfo) return false
+
+      return true
+    })
+    .sort((a, b) => {
+      const simA = Math.max(a.sscdSimilarity ?? 0, a.dinoSimilarity ?? 0)
+      const simB = Math.max(b.sscdSimilarity ?? 0, b.dinoSimilarity ?? 0)
+      return simB - simA
+    })
+})
+
 function similarityPercent(value: number | null) {
   if (value == null) return '-'
   return (value * 100).toFixed(1) + '%'
@@ -339,15 +364,18 @@ onUnmounted(stopPolling)
         <div v-if="selectedDetail" class="mt-4">
           <!-- Internet Results -->
           <template v-if="selectedDetail.scan.scanType === 'INTERNET'">
-            <div v-if="selectedDetail.internetResults.length === 0" class="flex flex-col items-center py-8 text-center">
+            <div v-if="filteredInternetResults.length === 0" class="flex flex-col items-center py-8 text-center">
               <CheckCircle2 class="h-10 w-10 text-green-500" />
               <p class="mt-3 font-medium">도용이 감지되지 않았습니다</p>
-              <p class="mt-1 text-sm text-muted-foreground">인터넷에서 유사 이미지를 찾지 못했습니다</p>
+              <p class="mt-1 text-sm text-muted-foreground">유사도 70% 이상인 결과가 없습니다</p>
             </div>
 
             <div v-else class="space-y-4">
+              <p class="text-xs text-muted-foreground">
+                유사도 70% 이상 {{ filteredInternetResults.length }}건 (전체 {{ selectedDetail.internetResults.length }}건)
+              </p>
               <DetectionResultCard
-                v-for="result in selectedDetail.internetResults"
+                v-for="result in filteredInternetResults"
                 :key="result.id"
                 :result="result"
               />

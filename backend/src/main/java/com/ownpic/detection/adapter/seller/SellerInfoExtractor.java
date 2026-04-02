@@ -42,6 +42,8 @@ public class SellerInfoExtractor {
     private static final Pattern EMAIL = Pattern.compile("([\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,})");
     private static final Pattern STORE_NAME = Pattern.compile("(?:상호[명]?|회사[명]?|업체[명]?)\\s*[：:.]?\\s*([^\\n<,]{2,50})");
     private static final Pattern ADDRESS = Pattern.compile("(?:소재지|사업장[\\s]*주소|주소)\\s*[：:.]?\\s*([^\\n<]{5,100})");
+    // 통신판매번호: 제YYYY-지역-NNNN호
+    private static final Pattern MAIL_ORDER_NUMBER = Pattern.compile("제?\\d{4}-[가-힣]{2,5}-\\d{4}호?");
 
     private static final List<String> USER_AGENTS = List.of(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -136,10 +138,67 @@ public class SellerInfoExtractor {
 
     /**
      * HTML Document에서 사업자 정보 파싱.
+     *
+     * 통신판매중개자(오픈마켓): 상품 페이지 내 "판매자 정보" 섹션 크롤링
+     *   → footer는 플랫폼 본사 정보(쿠팡주식회사 등)이므로 무시
+     * 자사몰/스마트스토어: footer 크롤링
+     *   → footer = 실제 판매자 정보
      */
     private SellerInfo parseBusinessInfo(Document doc, String url, Platform platform, Hint hint) {
-        // 1단계: dt/dd, th/td 구조 파싱 (가장 정확)
-        SellerInfo structured = parseStructured(doc, platform);
+        String targetText = "";
+
+        if (hint.isMarketplace()) {
+            // ★ 오픈마켓: 상품 페이지 내 판매자 정보 섹션 크롤링 (footer 무시)
+            log.debug("[SellerExtractor] 통신판매중개자 — 상품 페이지 내 판매자 정보 섹션 탐색: {}", platform.type());
+
+            // 1차: 플랫폼별 CSS 셀렉터로 판매자 섹션 특정
+            if (hint.sellerSectionSelector() != null) {
+                Elements sellerSection = doc.select(hint.sellerSectionSelector());
+                if (!sellerSection.isEmpty()) {
+                    targetText = sellerSection.text();
+                    log.debug("[SellerExtractor] 판매자 섹션 발견: {}자", targetText.length());
+                }
+            }
+
+            // 2차: 범용 셀렉터로 판매자 정보 영역 탐색
+            if (targetText.isBlank()) {
+                Elements sellerAreas = doc.select(
+                        "[class*=seller], [class*=vendor], [class*=partner], " +
+                        "[id*=seller], [id*=vendor], [data-seller], " +
+                        "[class*=shop-info], [class*=store-info]");
+                if (!sellerAreas.isEmpty()) {
+                    targetText = sellerAreas.text();
+                }
+            }
+
+            // 3차: "판매자 정보", "사업자 정보" 텍스트가 있는 영역 탐색
+            if (targetText.isBlank()) {
+                for (Element el : doc.getAllElements()) {
+                    String text = el.ownText();
+                    if (text.contains("판매자 정보") || text.contains("사업자정보") || text.contains("판매자정보")) {
+                        // 해당 요소의 부모 또는 다음 형제에서 정보 추출
+                        Element parent = el.parent();
+                        if (parent != null) {
+                            targetText = parent.text();
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            // 자사몰/스마트스토어: footer = 판매자 정보
+            if (hint.businessInfoSelector() != null) {
+                Elements els = doc.select(hint.businessInfoSelector());
+                targetText = els.text();
+            }
+            if (targetText.isBlank()) {
+                Elements footer = doc.select("footer, #footer, .footer, [class*=footer], [class*=Footer]");
+                targetText = footer.isEmpty() ? "" : footer.text();
+            }
+        }
+
+        // dt/dd, th/td 구조 파싱 (판매자 섹션 또는 footer 내)
+        SellerInfo structured = parseStructured(doc, platform, hint.isMarketplace());
         if (structured != null && structured.hasBusinessInfo()) {
             return new SellerInfo(platform.type(), platform.category(),
                     structured.sellerName(), structured.businessRegNumber(),
@@ -147,15 +206,29 @@ public class SellerInfoExtractor {
                     structured.contactPhone(), structured.contactEmail(), url);
         }
 
-        // 2단계: CSS 셀렉터로 영역 특정 → 정규식 추출
-        String targetText = "";
-        if (hint.businessInfoSelector() != null) {
-            Elements els = doc.select(hint.businessInfoSelector());
-            targetText = els.text();
+        // 4차: HTML 소스 내 JSON 데이터에서 사업자 정보 추출
+        // window.__INITIAL_STATE__, __NEXT_DATA__ 등에 JSON으로 박혀있는 경우
+        if (targetText.isBlank() || !targetText.matches(".*\\d{3}-\\d{2}-\\d{5}.*")) {
+            String jsonSellerInfo = extractFromEmbeddedJson(doc);
+            if (jsonSellerInfo != null && !jsonSellerInfo.isBlank()) {
+                targetText = jsonSellerInfo + " " + targetText;
+            }
         }
+
+        // 5차: 키워드 스캔 — "사업자등록번호" 포함 영역 집중 파싱
+        if (targetText.isBlank() || !targetText.matches(".*\\d{3}-\\d{2}-\\d{5}.*")) {
+            for (Element el : doc.getAllElements()) {
+                if (el.ownText().contains("사업자등록번호") || el.ownText().contains("사업자 등록번호")) {
+                    Element container = el.parent() != null ? el.parent() : el;
+                    targetText = container.text();
+                    break;
+                }
+            }
+        }
+
+        // 정규식 fallback
         if (targetText.isBlank()) {
-            Elements footer = doc.select("footer, #footer, .footer, [class*=footer], [class*=Footer], [class*=company], [class*=bottom]");
-            targetText = footer.isEmpty() ? doc.body().text() : footer.text();
+            targetText = doc.body().text();
         }
 
         String sellerName = extractFirst(STORE_NAME, targetText);
@@ -178,13 +251,23 @@ public class SellerInfoExtractor {
 
     /**
      * dt/dd, th/td 구조에서 사업자 정보 파싱.
+     * 오픈마켓이면 판매자 섹션 내부만, 자사몰이면 전체 문서에서 탐색.
      */
-    private SellerInfo parseStructured(Document doc, Platform platform) {
+    private SellerInfo parseStructured(Document doc, Platform platform, boolean isMarketplace) {
         String sellerName = null, bizNumber = null, representative = null;
         String address = null, phone = null, email = null;
 
+        // 오픈마켓이면 판매자 섹션만 탐색 (footer 제외)
+        Elements searchScope;
+        if (isMarketplace) {
+            searchScope = doc.select("[class*=seller], [class*=vendor], [class*=partner], [class*=shop-info], [class*=store-info]");
+            if (searchScope.isEmpty()) searchScope = doc.select("body"); // fallback
+        } else {
+            searchScope = doc.select("body");
+        }
+
         // dt/dd 쌍
-        for (Element dt : doc.select("dt")) {
+        for (Element dt : searchScope.select("dt")) {
             String label = dt.text().trim();
             Element dd = dt.nextElementSibling();
             if (dd == null || !"dd".equals(dd.tagName())) continue;
@@ -202,7 +285,7 @@ public class SellerInfoExtractor {
         }
 
         // th/td 쌍
-        for (Element th : doc.select("th")) {
+        for (Element th : searchScope.select("th")) {
             String label = th.text().trim();
             Element td = th.nextElementSibling();
             if (td == null || !"td".equals(td.tagName())) continue;
@@ -294,6 +377,50 @@ public class SellerInfoExtractor {
         String stripped = host.replaceFirst("^(cdn|img|image|images|static|media|thumbnail)\\d*\\.", "");
         if (!stripped.equals(host) && stripped.contains(".")) {
             return stripped;
+        }
+        return null;
+    }
+
+    /**
+     * HTML 소스 내 script 태그에 포함된 JSON 데이터에서 사업자 정보 추출.
+     * 많은 SPA 프레임워크(Next.js, Nuxt 등)가 window.__INITIAL_STATE__, __NEXT_DATA__ 등에
+     * 사업자 정보를 JSON으로 포함시킴.
+     */
+    private String extractFromEmbeddedJson(Document doc) {
+        for (Element script : doc.select("script")) {
+            String scriptText = script.html();
+            if (scriptText.length() < 100) continue;
+
+            // 사업자등록번호 패턴이 있는 script만 처리
+            if (!BIZ_NUMBER.matcher(scriptText).find()) continue;
+
+            // JSON에서 관련 키워드 주변 텍스트 추출
+            StringBuilder extracted = new StringBuilder();
+
+            // 사업자번호
+            Matcher bizMatcher = BIZ_NUMBER.matcher(scriptText);
+            if (bizMatcher.find()) extracted.append("사업자등록번호: ").append(bizMatcher.group()).append(" ");
+
+            // 대표자
+            Matcher repMatcher = Pattern.compile("\"(?:ceo|representative|대표[자]?)[\"\\s:]+\"([^\"]+)\"").matcher(scriptText);
+            if (repMatcher.find()) extracted.append("대표자: ").append(repMatcher.group(1)).append(" ");
+
+            // 상호명
+            Matcher nameMatcher = Pattern.compile("\"(?:companyName|storeName|상호[명]?|sellerName)[\"\\s:]+\"([^\"]+)\"").matcher(scriptText);
+            if (nameMatcher.find()) extracted.append("상호: ").append(nameMatcher.group(1)).append(" ");
+
+            // 연락처
+            Matcher phoneMatcher = PHONE.matcher(scriptText);
+            if (phoneMatcher.find()) extracted.append("전화: ").append(phoneMatcher.group()).append(" ");
+
+            // 이메일
+            Matcher emailMatcher = EMAIL.matcher(scriptText);
+            if (emailMatcher.find()) extracted.append("이메일: ").append(emailMatcher.group()).append(" ");
+
+            if (!extracted.isEmpty()) {
+                log.debug("[SellerExtractor] JSON 데이터에서 사업자 정보 발견: {}", extracted);
+                return extracted.toString();
+            }
         }
         return null;
     }
