@@ -33,10 +33,10 @@ public class PdfGenerator {
                 html = new String(is.readAllBytes());
             }
 
-            // 단순 변수 치환
+            // 단순 변수 치환 (HTML 이스케이프 적용)
             for (var entry : data.entrySet()) {
                 if (entry.getValue() instanceof String || entry.getValue() instanceof Number) {
-                    html = html.replace("{{" + entry.getKey() + "}}", String.valueOf(entry.getValue()));
+                    html = html.replace("{{" + entry.getKey() + "}}", escapeHtml(String.valueOf(entry.getValue())));
                 }
             }
 
@@ -65,7 +65,7 @@ public class PdfGenerator {
                         if (item instanceof Map<?, ?> map) {
                             String row = template;
                             for (var e : ((Map<String, Object>) map).entrySet()) {
-                                row = row.replace("{{" + e.getKey() + "}}", String.valueOf(e.getValue() != null ? e.getValue() : ""));
+                                row = row.replace("{{" + e.getKey() + "}}", escapeHtml(String.valueOf(e.getValue() != null ? e.getValue() : "")));
                             }
                             sb.append(row);
                         }
@@ -82,9 +82,17 @@ public class PdfGenerator {
      */
     public byte[] htmlToPdf(String html) {
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            // HTML → XHTML 변환 (OpenHTMLtoPDF는 valid XHTML 필요)
+            Document doc = Jsoup.parse(html);
+            doc.outputSettings()
+                    .syntax(Document.OutputSettings.Syntax.xml)
+                    .escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml)
+                    .charset("UTF-8");
+            String xhtml = doc.html();
+
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            builder.withHtmlContent(html, "/");
+            builder.withHtmlContent(xhtml, "/");
             builder.toStream(os);
             builder.run();
             return os.toByteArray();
@@ -137,5 +145,13 @@ public class PdfGenerator {
             log.error("DOCX generation failed", e);
             throw new RuntimeException("DOCX 생성 실패", e);
         }
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;");
     }
 }
