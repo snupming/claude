@@ -163,8 +163,15 @@ function handleImageError(e: Event) {
       <div class="mt-3 flex items-start gap-2">
         <Globe class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold">{{ result.sellerName || domainFromUrl(result.sourcePageUrl || result.foundImageUrl) || '출처 불명' }}</p>
-          <p v-if="result.sourcePageTitle" class="truncate text-xs text-muted-foreground">{{ result.sourcePageTitle }}</p>
+          <p class="text-sm font-semibold">
+            {{ result.sellerName || domainFromUrl(result.sourcePageUrl || result.foundImageUrl) || '출처 불명' }}
+          </p>
+          <p v-if="result.sourcePageUrl" class="truncate text-xs text-muted-foreground">
+            {{ domainFromUrl(result.sourcePageUrl) }}
+          </p>
+          <p v-if="result.sourcePageTitle && !result.sellerName" class="truncate text-xs text-muted-foreground">
+            {{ result.sourcePageTitle }}
+          </p>
         </div>
       </div>
 
@@ -181,8 +188,8 @@ function handleImageError(e: Event) {
 
     <!-- 펼침: 상세 정보 -->
     <div v-if="expanded" class="border-t border-border/50 px-4 pb-4 pt-3">
-      <!-- 침해자 사업자 정보 -->
-      <div v-if="result.businessRegNumber || result.representativeName || result.sellerName" class="mb-4 rounded-lg bg-muted/50 p-3">
+      <!-- 침해자 사업자 정보 (사업자번호 또는 대표자가 있을 때만) -->
+      <div v-if="result.businessRegNumber || result.representativeName" class="mb-4 rounded-lg bg-muted/50 p-3">
         <div class="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           <Building2 class="h-3.5 w-3.5" />
           침해자 정보
@@ -233,11 +240,16 @@ function handleImageError(e: Event) {
       <div class="space-y-2 text-sm">
         <div v-if="result.sourcePageUrl" class="flex items-start gap-2">
           <span class="w-16 shrink-0 text-xs text-muted-foreground">출처 URL</span>
-          <a :href="result.sourcePageUrl" target="_blank" rel="noopener noreferrer"
-             class="min-w-0 flex-1 break-all text-xs text-primary hover:underline">
-            {{ result.sourcePageUrl }}
-            <ExternalLink class="ml-1 inline h-3 w-3" />
-          </a>
+          <div class="min-w-0 flex-1">
+            <a :href="result.sourcePageUrl" target="_blank" rel="noopener noreferrer"
+               class="break-all text-xs text-primary hover:underline">
+              {{ result.sourcePageUrl }}
+              <ExternalLink class="ml-1 inline h-3 w-3" />
+            </a>
+            <p class="mt-0.5 text-[10px] text-muted-foreground/70">
+              * 구글 검색 기반 결과입니다. 실제 페이지와 다를 수 있으니 직접 확인하세요.
+            </p>
+          </div>
         </div>
         <div class="flex gap-2">
           <span class="w-16 shrink-0 text-xs text-muted-foreground">탐지 일시</span>
