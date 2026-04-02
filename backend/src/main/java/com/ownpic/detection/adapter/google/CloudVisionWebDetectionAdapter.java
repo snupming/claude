@@ -1,10 +1,14 @@
 package com.ownpic.detection.adapter.google;
 
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.rpc.HeaderProvider;
 import com.google.cloud.vision.v1.*;
 import com.google.protobuf.ByteString;
 import com.ownpic.detection.port.ReverseImageSearchPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +17,10 @@ import java.util.*;
 /**
  * Google Cloud Vision API — WebDetection 기반 리버스 이미지 검색.
  *
- * 활성화: SPRING_PROFILES_ACTIVE=google
- * 인증: GOOGLE_APPLICATION_CREDENTIALS 환경변수에 서비스 계정 JSON 경로 설정
+ * 인증 방식 (둘 중 하나):
+ * 1. API 키: GOOGLE_VISION_API_KEY 환경변수
+ * 2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
+ *
  * 가격: 월 1,000건 무료, 이후 1,000건당 $3.50
  */
 @Component
@@ -23,15 +29,36 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
 
     private static final Logger log = LoggerFactory.getLogger(CloudVisionWebDetectionAdapter.class);
 
-    public CloudVisionWebDetectionAdapter() {
-        log.info("[CloudVision] WebDetection adapter ENABLED");
+    private final String apiKey;
+
+    public CloudVisionWebDetectionAdapter(
+            @Value("${ownpic.google.vision-api-key:}") String apiKey) {
+        this.apiKey = apiKey;
+        if (apiKey != null && !apiKey.isBlank()) {
+            log.info("[CloudVision] WebDetection adapter ENABLED (API Key 인증)");
+        } else {
+            log.info("[CloudVision] WebDetection adapter ENABLED (서비스 계정 인증)");
+        }
+    }
+
+    private ImageAnnotatorClient createClient() throws Exception {
+        if (apiKey != null && !apiKey.isBlank()) {
+            // API 키 인증
+            ImageAnnotatorSettings settings = ImageAnnotatorSettings.newBuilder()
+                    .setCredentialsProvider(NoCredentialsProvider.create())
+                    .setHeaderProvider((HeaderProvider) () -> Map.of("x-goog-api-key", apiKey))
+                    .build();
+            return ImageAnnotatorClient.create(settings);
+        }
+        // 서비스 계정 (GOOGLE_APPLICATION_CREDENTIALS) 자동 인증
+        return ImageAnnotatorClient.create();
     }
 
     @Override
     public List<ReverseSearchResult> searchByImage(byte[] imageBytes, int maxResults) {
         log.info("[CloudVision] WebDetection 시작 — imageBytes={}KB, maxResults={}", imageBytes.length / 1024, maxResults);
 
-        try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
+        try (ImageAnnotatorClient client = createClient()) {
             Image image = Image.newBuilder()
                     .setContent(ByteString.copyFrom(imageBytes))
                     .build();
