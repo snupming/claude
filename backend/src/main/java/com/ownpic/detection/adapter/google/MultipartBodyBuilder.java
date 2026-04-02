@@ -12,13 +12,14 @@ final class MultipartBodyBuilder {
 
     static Result build(byte[] imageBytes, String filename) {
         String boundary = "----WebKitFormBoundary" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        String contentType = detectContentType(imageBytes);
 
         List<byte[]> parts = new ArrayList<>();
 
-        // encoded_image part
+        // encoded_image part — 구글 searchbyimage 업로드 필드명
         String header = "--" + boundary + "\r\n"
                 + "Content-Disposition: form-data; name=\"encoded_image\"; filename=\"" + filename + "\"\r\n"
-                + "Content-Type: application/octet-stream\r\n\r\n";
+                + "Content-Type: " + contentType + "\r\n\r\n";
         parts.add(header.getBytes(StandardCharsets.UTF_8));
         parts.add(imageBytes);
         parts.add("\r\n".getBytes(StandardCharsets.UTF_8));
@@ -38,6 +39,19 @@ final class MultipartBodyBuilder {
                 HttpRequest.BodyPublishers.ofByteArray(body),
                 "multipart/form-data; boundary=" + boundary
         );
+    }
+
+    private static String detectContentType(byte[] bytes) {
+        if (bytes.length >= 3 && bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xD8) {
+            return "image/jpeg";
+        }
+        if (bytes.length >= 8 && bytes[0] == (byte) 0x89 && bytes[1] == 0x50) {
+            return "image/png";
+        }
+        if (bytes.length >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49) {
+            return "image/webp";
+        }
+        return "image/jpeg"; // default
     }
 
     record Result(HttpRequest.BodyPublisher bodyPublisher, String contentType) {}

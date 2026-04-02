@@ -98,7 +98,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
         List<ReverseSearchResult> results = new ArrayList<>();
         Set<String> seen = new HashSet<>();
 
-        // Strategy 1: /imgres? links (most reliable)
+        // Strategy 1: /imgres? links (image search grid)
         Elements imgresLinks = doc.select("a[href*=/imgres?]");
         log.info("[SearchByImage] 파싱 — imgres 링크: {}개", imgresLinks.size());
         for (Element link : imgresLinks) {
@@ -109,11 +109,11 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
             }
         }
 
-        // Strategy 2: data-ri result divs (image search grid)
+        // Strategy 2: data-ri / isv-r divs (image grid)
         if (results.isEmpty()) {
-            Elements resultDivs = doc.select("div[data-ri]");
-            log.info("[SearchByImage] 파싱 — data-ri div: {}개", resultDivs.size());
-            for (Element div : resultDivs) {
+            Elements gridDivs = doc.select("div[data-ri], div.isv-r");
+            log.info("[SearchByImage] 파싱 — grid div: {}개", gridDivs.size());
+            for (Element div : gridDivs) {
                 if (results.size() >= maxResults) break;
                 ReverseSearchResult result = parseResultDiv(div);
                 if (result != null && seen.add(result.imageUrl())) {
@@ -122,22 +122,60 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
             }
         }
 
-        // Strategy 3: isv-r class divs
+        // Strategy 3: 웹 검색 결과에서 이미지 추출 (구글이 일반 검색 결과를 반환하는 경우)
         if (results.isEmpty()) {
-            Elements isvDivs = doc.select("div.isv-r");
-            log.info("[SearchByImage] 파싱 — isv-r div: {}개", isvDivs.size());
-            for (Element div : isvDivs) {
+            // 검색 결과 링크 (외부 사이트 링크)
+            Elements searchLinks = doc.select("a[href^=http]");
+            log.info("[SearchByImage] 파싱 — 웹 검색 링크: {}개", searchLinks.size());
+            for (Element link : searchLinks) {
                 if (results.size() >= maxResults) break;
-                ReverseSearchResult result = parseResultDiv(div);
-                if (result != null && seen.add(result.imageUrl())) {
-                    results.add(result);
+                String href = link.attr("href");
+                // 구글 내부 링크 제외
+                if (href.contains("google.com") || href.contains("gstatic.com")
+                        || href.contains("youtube.com") || href.contains("accounts.google")) continue;
+                // data: URL 제외
+                if (href.startsWith("data:")) continue;
+
+                String title = link.text();
+                if (title.isBlank()) continue;
+
+                // 이미지가 포함된 링크 찾기
+                Element img = link.selectFirst("img[src^=http]");
+                String imageUrl = img != null ? img.attr("src") : null;
+
+                // 이미지가 없으면 href 자체를 소스 페이지 URL로 사용
+                if (imageUrl != null && seen.add(imageUrl)) {
+                    results.add(new ReverseSearchResult(imageUrl, href, title));
+                } else if (seen.add(href)) {
+                    // 이미지 URL이 없는 경우: href가 이미지일 수 있음
+                    if (href.matches(".*\\.(jpg|jpeg|png|webp|gif)(\\?.*)?$")) {
+                        results.add(new ReverseSearchResult(href, null, title));
+                    }
+                }
+            }
+        }
+
+        // Strategy 4: "유사한 이미지" 섹션의 썸네일 이미지
+        if (results.isEmpty()) {
+            Elements thumbnails = doc.select("img[src^=http]:not([src*=google]):not([src*=gstatic])");
+            log.info("[SearchByImage] 파싱 — 외부 이미지 썸네일: {}개", thumbnails.size());
+            for (Element img : thumbnails) {
+                if (results.size() >= maxResults) break;
+                String src = img.attr("src");
+                if (src.isEmpty() || src.startsWith("data:")) continue;
+                Element parentLink = img.closest("a[href^=http]");
+                String pageUrl = parentLink != null ? parentLink.attr("href") : null;
+                if (pageUrl != null && pageUrl.contains("google.com")) pageUrl = null;
+                String title = img.attr("alt");
+                if (seen.add(src)) {
+                    results.add(new ReverseSearchResult(src, pageUrl, title));
                 }
             }
         }
 
         if (results.isEmpty()) {
-            log.warn("[SearchByImage] 파싱 결과 0건 — HTML title: {}, body(300자): {}",
-                    doc.title(), html.substring(0, Math.min(html.length(), 300)));
+            log.warn("[SearchByImage] 파싱 결과 0건 — HTML title: {}, body(500자): {}",
+                    doc.title(), html.substring(0, Math.min(html.length(), 500)));
         } else {
             log.info("[SearchByImage] 파싱 완료 — {} 결과", results.size());
         }

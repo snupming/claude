@@ -27,7 +27,7 @@ public class GoogleReverseImageSearchAdapter implements ReverseImageSearchPort {
                                            GoogleLensUploadStrategy lensUpload,
                                            ScraperRateLimiter rateLimiter,
                                            GoogleScraperProperties props) {
-        this.strategies = List.of(searchByImage, lensUpload);
+        this.strategies = List.of(lensUpload, searchByImage);
         this.rateLimiter = rateLimiter;
         this.failureThreshold = props.consecutiveFailureThreshold();
         log.info("Google reverse image search ENABLED — strategies: {}, failureThreshold: {}",
