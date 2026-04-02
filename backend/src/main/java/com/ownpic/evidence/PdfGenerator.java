@@ -92,6 +92,18 @@ public class PdfGenerator {
 
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
+
+            // 한글 폰트 등록 (Noto Sans KR)
+            var fontResource = new ClassPathResource("fonts/NotoSansKR.ttf");
+            // ClassPath 리소스를 임시 파일로 복사 (OpenHTMLtoPDF는 File 필요)
+            java.io.File fontFile = java.io.File.createTempFile("NotoSansKR", ".ttf");
+            fontFile.deleteOnExit();
+            try (var in = fontResource.getInputStream();
+                 var out = new java.io.FileOutputStream(fontFile)) {
+                in.transferTo(out);
+            }
+            builder.useFont(fontFile, "Noto Sans KR");
+
             builder.withHtmlContent(xhtml, "/");
             builder.toStream(os);
             builder.run();
