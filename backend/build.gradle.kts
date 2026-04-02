@@ -45,6 +45,9 @@ dependencies {
     // HTML parsing (Google search result scraping)
     implementation("org.jsoup:jsoup:1.18.3")
 
+    // Playwright (헤드리스 브라우저 — Google Lens 크롤링)
+    implementation("com.microsoft.playwright:playwright:1.52.0")
+
     // WebP/TIFF 등 추가 이미지 포맷 지원 (ImageIO 플러그인)
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
 

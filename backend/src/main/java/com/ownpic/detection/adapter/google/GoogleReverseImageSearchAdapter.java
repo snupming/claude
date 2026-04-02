@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
-@Profile("google")
+@Profile("google-legacy")
 @EnableConfigurationProperties(GoogleScraperProperties.class)
 public class GoogleReverseImageSearchAdapter implements ReverseImageSearchPort {
 
