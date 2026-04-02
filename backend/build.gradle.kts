@@ -52,7 +52,7 @@ dependencies {
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
 
     // PDF 생성 (HTML → PDF, 한글 폰트 지원)
-    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.1.24")
+    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10")
 
     // DOCX 생성
     implementation("org.apache.poi:poi-ooxml:5.4.0")
