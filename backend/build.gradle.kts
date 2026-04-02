@@ -59,6 +59,9 @@ dependencies {
     // DOCX 생성
     implementation("org.apache.poi:poi-ooxml:5.4.0")
 
+    // Selenium (Google Lens 크롤링 + 판매 페이지 동적 렌더링)
+    implementation("org.seleniumhq.selenium:selenium-java:4.27.0")
+
     // Dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
