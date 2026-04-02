@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 public class OwnpicApplication {
 
-    static void main(String[] args) {
+    public static void main(String[] args) {
         SpringApplication.run(OwnpicApplication.class, args);
     }
 }
