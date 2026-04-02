@@ -59,6 +59,7 @@ ownpic:
   #   2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
   google:
     vision-api-key: ${GOOGLE_VISION_API_KEY:}
+    selenium-enabled: ${GOOGLE_SELENIUM_ENABLED:false}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:

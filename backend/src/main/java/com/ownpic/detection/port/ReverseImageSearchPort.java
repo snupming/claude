@@ -9,6 +9,13 @@ public interface ReverseImageSearchPort {
     record ReverseSearchResult(
             String imageUrl,
             String sourcePageUrl,
-            String title
-    ) {}
+            String title,
+            String bestGuessLabel,
+            String topEntity
+    ) {
+        /** 기존 3인자 호환 생성자 */
+        public ReverseSearchResult(String imageUrl, String sourcePageUrl, String title) {
+            this(imageUrl, sourcePageUrl, title, null, null);
+        }
+    }
 }

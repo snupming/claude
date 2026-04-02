@@ -1,0 +1,206 @@
+package com.ownpic.detection.adapter.google;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.openqa.selenium.*;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * Selenium으로 Google Lens 이미지 검색을 수행하여
+ * sourcePageUrl이 없는 결과에 대해 판매 페이지 URL을 보완.
+ *
+ * Vision API의 pagesWithMatchingImages로 못 잡은 결과를 커버.
+ */
+@Component
+@Profile("google")
+public class SeleniumLensAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(SeleniumLensAdapter.class);
+
+    @Value("${ownpic.google.selenium-enabled:false}")
+    private boolean enabled;
+
+    private WebDriver driver;
+
+    @PostConstruct
+    public void init() {
+        if (!enabled) {
+            log.info("[SeleniumLens] DISABLED (ownpic.google.selenium-enabled=false)");
+            return;
+        }
+        try {
+            ChromeOptions options = new ChromeOptions();
+            options.addArguments(
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-blink-features=AutomationControlled",
+                    "--lang=ko-KR",
+                    "--window-size=1920,1080"
+            );
+            // headless 모드 비활성 (구글 차단 방지)
+            // 서버 환경에서 필요하면 활성화: options.addArguments("--headless=new");
+
+            driver = new ChromeDriver(options);
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            log.info("[SeleniumLens] Chrome 브라우저 초기화 완료");
+        } catch (Exception e) {
+            log.warn("[SeleniumLens] Chrome 초기화 실패 — Selenium 기능 비활성: {}", e.getMessage());
+            enabled = false;
+        }
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        if (driver != null) {
+            try {
+                driver.quit();
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Google Lens로 이미지 검색하여 판매 페이지 URL 목록 반환.
+     *
+     * @param imageBytes 검색할 이미지 바이트
+     * @return 발견된 판매 페이지 URL 목록 (도메인, 페이지 URL, 제목)
+     */
+    public List<LensResult> searchByImage(byte[] imageBytes) {
+        if (!enabled || driver == null) {
+            return List.of();
+        }
+
+        Path tempFile = null;
+        try {
+            // 이미지 임시 파일 저장
+            tempFile = Files.createTempFile("lens_", ".jpg");
+            Files.write(tempFile, imageBytes);
+
+            // 랜덤 지연 (3~7초)
+            randomDelay();
+
+            // Google 이미지 검색 접속
+            driver.get("https://images.google.com");
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+            // '이미지로 검색' 버튼 클릭
+            WebElement lensButton = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.cssSelector("div[aria-label='이미지로 검색'], div[aria-label='Search by image']")));
+            lensButton.click();
+
+            randomDelay(1000, 3000);
+
+            // 파일 업로드
+            WebElement fileInput = wait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath("//input[@type='file']")));
+            fileInput.sendKeys(tempFile.toAbsolutePath().toString());
+
+            // 결과 페이지 대기
+            wait.until(ExpectedConditions.or(
+                    ExpectedConditions.presenceOfElementLocated(By.id("search")),
+                    ExpectedConditions.presenceOfElementLocated(By.cssSelector("[data-ri]")),
+                    ExpectedConditions.urlContains("lens")
+            ));
+
+            randomDelay(2000, 5000);
+
+            // 결과에서 링크 수집
+            List<LensResult> results = new ArrayList<>();
+            List<WebElement> links = driver.findElements(By.cssSelector("a[href]"));
+
+            Set<String> seen = new HashSet<>();
+            for (WebElement link : links) {
+                try {
+                    String href = link.getAttribute("href");
+                    if (href == null || href.isBlank()) continue;
+                    if (!href.startsWith("http")) continue;
+                    if (href.contains("google.com")) continue; // 구글 자체 링크 제외
+
+                    String domain = new java.net.URI(href).getHost();
+                    if (domain == null) continue;
+
+                    if (seen.add(href)) {
+                        String text = link.getText();
+                        results.add(new LensResult(href, domain, text));
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            log.info("[SeleniumLens] 검색 완료 — {}개 외부 링크 발견", results.size());
+            return results;
+
+        } catch (Exception e) {
+            log.warn("[SeleniumLens] Google Lens 검색 실패: {}", e.getMessage());
+            return List.of();
+        } finally {
+            if (tempFile != null) {
+                try { Files.deleteIfExists(tempFile); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    /**
+     * Selenium으로 페이지에 접속하여 끝까지 스크롤 후 페이지 소스 반환.
+     * 네이버 스마트스토어/쿠팡 등 JS 동적 로딩 대응.
+     */
+    public String fetchPageWithScroll(String url) {
+        if (!enabled || driver == null) return null;
+
+        try {
+            randomDelay(1000, 3000);
+            driver.get(url);
+
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+
+            // 페이지 끝까지 스크롤 (동적 로딩 대응)
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            long lastHeight = (long) js.executeScript("return document.body.scrollHeight");
+            for (int i = 0; i < 5; i++) {
+                js.executeScript("window.scrollTo(0, document.body.scrollHeight)");
+                randomDelay(1000, 2000);
+                long newHeight = (long) js.executeScript("return document.body.scrollHeight");
+                if (newHeight == lastHeight) break;
+                lastHeight = newHeight;
+            }
+
+            return driver.getPageSource();
+        } catch (Exception e) {
+            log.debug("[SeleniumLens] 페이지 접속 실패: {} — {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    public boolean isEnabled() {
+        return enabled && driver != null;
+    }
+
+    private void randomDelay() {
+        randomDelay(3000, 7000);
+    }
+
+    private void randomDelay(int minMs, int maxMs) {
+        try {
+            Thread.sleep(ThreadLocalRandom.current().nextInt(minMs, maxMs));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public record LensResult(String pageUrl, String domain, String title) {}
+}

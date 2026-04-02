@@ -22,7 +22,9 @@ public record InternetDetectionResultResponse(
         String businessAddress,
         String contactPhone,
         String contactEmail,
-        String storeUrl
+        String storeUrl,
+        String bestGuessLabel,
+        String detectedEntity
 ) {
     public static InternetDetectionResultResponse from(InternetDetectionResult r) {
         return new InternetDetectionResultResponse(
@@ -32,6 +34,7 @@ public record InternetDetectionResultResponse(
                 r.getJudgment(), r.getSearchEngine(), r.getCreatedAt(),
                 r.getPlatformType(), r.getSellerName(), r.getBusinessRegNumber(),
                 r.getRepresentativeName(), r.getBusinessAddress(),
-                r.getContactPhone(), r.getContactEmail(), r.getStoreUrl());
+                r.getContactPhone(), r.getContactEmail(), r.getStoreUrl(),
+                r.getBestGuessLabel(), r.getDetectedEntity());
     }
 }

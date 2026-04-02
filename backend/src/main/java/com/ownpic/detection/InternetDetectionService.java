@@ -147,6 +147,9 @@ public class InternetDetectionService {
                             InternetDetectionResult result = processSearchResult(
                                     scanId, image.getId(), sr, sourceSSCD, sourceDINO, "GOOGLE");
                             if (result != null) {
+                                // Vision API bestGuessLabel / topEntity 저장
+                                if (rr.bestGuessLabel() != null) result.setBestGuessLabel(rr.bestGuessLabel());
+                                if (rr.topEntity() != null) result.setDetectedEntity(rr.topEntity());
                                 imageResults.add(result);
                                 googleMatches++;
                             }
