@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; font-size: 11pt; line-height: 1.8; color: #222; margin: 50px; }
+  h1 { text-align: center; font-size: 22pt; letter-spacing: 15px; margin-bottom: 40px; }
+  .party { margin: 20px 0; }
+  .party .label { font-weight: bold; margin-bottom: 5px; }
+  .party table { border-collapse: collapse; }
+  .party td { padding: 3px 15px 3px 0; }
+  .party td:first-child { font-weight: bold; width: 80px; }
+  .title { font-size: 13pt; font-weight: bold; text-align: center; margin: 30px 0 20px; border-top: 1px solid #333; border-bottom: 1px solid #333; padding: 10px 0; }
+  .section { margin: 20px 0; }
+  .section-title { font-weight: bold; margin-bottom: 8px; }
+  .indent { margin-left: 20px; }
+  .sub-indent { margin-left: 40px; }
+  .infringement-item { margin: 8px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #d32f2f; }
+  .signature { text-align: right; margin-top: 50px; }
+  .disclaimer { margin-top: 40px; font-size: 8pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+  .lawtalk { text-align: center; margin: 30px 0; padding: 15px; border: 1px solid #1976d2; background: #e3f2fd; font-size: 9pt; }
+  .lawtalk a { color: #1976d2; font-weight: bold; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h1>내 용 증 명</h1>
+
+<div class="party">
+  <div class="label">발신인</div>
+  <table>
+    <tr><td>성명:</td><td>{{senderName}}</td></tr>
+    <tr><td>주소:</td><td>{{senderAddress}}</td></tr>
+    <tr><td>연락처:</td><td>{{senderPhone}}</td></tr>
+  </table>
+</div>
+
+<div class="party">
+  <div class="label">수신인</div>
+  <table>
+    <tr><td>성명(상호):</td><td>{{recipientName}}</td></tr>
+    <tr><td>주소:</td><td>{{recipientAddress}}</td></tr>
+  </table>
+</div>
+
+<div class="title">저작권 침해행위 중단 및 손해배상 청구에 관한 통지서</div>
+
+<div class="section">
+  <div class="section-title">1. 발신인의 지위</div>
+  <div class="indent">
+    발신인은 아래 저작물의 저작권자입니다.
+    <div class="sub-indent">
+      - 저작물명: {{workTitle}}<br/>
+      - 저작물 유형: 사진/이미지 저작물<br/>
+      - 창작일: {{creationDate}}<br/>
+      - 최초 공표: {{firstPublicationInfo}}<br/>
+      - 저작권 등록번호: {{copyrightRegNumber}}
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">2. 침해 사실</div>
+  <div class="indent">
+    발신인은 수신인이 아래와 같이 발신인의 저작물을 무단으로
+    복제·전송하여 저작권을 침해하고 있는 사실을 확인하였습니다.
+
+    {{#infringements}}
+    <div class="infringement-item">
+      - 침해 URL: {{url}}<br/>
+      - 출처 페이지: {{pageUrl}}<br/>
+      - 확인 일시: {{detectedAt}}<br/>
+      - 이미지 유사도: {{similarity}}
+    </div>
+    {{/infringements}}
+
+    <p>(증거자료는 별도로 보관하고 있으며, 필요 시 제출하겠습니다.)</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">3. 법적 근거</div>
+  <div class="indent">
+    수신인의 위 행위는 「저작권법」 제2조(정의), 제16조(복제권),
+    제18조(공중송신권)에 따른 발신인의 저작재산권을 침해하는 것으로,
+    같은 법 제123조(침해의 정지 등 청구), 제125조(손해배상의 청구),
+    제136조(벌칙)에 해당합니다.
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">4. 요구사항</div>
+  <div class="indent">
+    발신인은 수신인에게 다음 사항을 요구합니다.
+    <div class="sub-indent">
+      가. 본 통지서 수령 즉시 해당 저작물의 사용을 중단하고,
+      게시된 모든 이미지를 삭제할 것.<br/><br/>
+
+      나. 무단 사용에 따른 손해배상금 금 {{damageAmount}}원을
+      아래 계좌로 지급할 것.<br/>
+      <div class="sub-indent">
+        - 은행: {{bankName}}<br/>
+        - 계좌번호: {{accountNumber}}<br/>
+        - 예금주: {{accountHolder}}
+      </div><br/>
+
+      다. 향후 발신인의 저작물을 무단으로 사용하지 않을 것을
+      서면으로 확약할 것.
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">5. 이행기한</div>
+  <div class="indent">
+    위 요구사항을 본 통지서 수령일로부터 <strong>{{complianceDays}}일 이내</strong>에
+    이행하여 주시기 바랍니다.
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">6. 불이행 시 조치</div>
+  <div class="indent">
+    위 기한 내에 요구사항이 이행되지 않을 경우, 발신인은 수신인을
+    상대로 민사상 손해배상 청구 소송 및 형사 고소 등 법적 조치를
+    취할 것임을 통지합니다.
+  </div>
+</div>
+
+<div class="signature">
+  {{sendDate}}<br/><br/>
+  발신인 &nbsp; {{senderName}} &nbsp; (서명 또는 날인)
+</div>
+
+<div class="lawtalk">
+  전문 변호사의 도움이 필요하신가요?<br/>
+  <a href="https://www.lawtalk.co.kr/lawyers?keyword=지식재산권&amp;category=지식재산권%2F엔터" target="_blank">
+    로톡에서 지식재산권 전문 변호사 찾기 →
+  </a>
+</div>
+
+<div class="disclaimer">
+  본 내용증명 양식은 자동 생성된 참고용 문서입니다.
+  우체국 내용증명 발송 시 3부를 동일하게 준비하여 제출하시기 바랍니다.
+  법적 효력을 강화하기 위해 전문 변호사의 검토를 권장합니다.
+</div>
+
+</body>
+</html>

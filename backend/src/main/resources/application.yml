@@ -52,12 +52,9 @@ ownpic:
   naver:
     client-id: ${NAVER_CLIENT_ID:mFs16l2rir71yzSBOlXE}
     client-secret: ${NAVER_CLIENT_SECRET:5PamyFVcE6}
-  google:
-    max-daily-requests: ${GOOGLE_MAX_DAILY:100}
-    min-delay-ms: ${GOOGLE_MIN_DELAY:7000}
-    jitter-ms: ${GOOGLE_JITTER:3000}
-    consecutive-failure-threshold: ${GOOGLE_FAIL_THRESHOLD:3}
-    request-timeout-seconds: ${GOOGLE_TIMEOUT:30}
+  # Google Cloud Vision API (WebDetection)
+  # 활성화: SPRING_PROFILES_ACTIVE에 google 추가
+  # 인증: GOOGLE_APPLICATION_CREDENTIALS 환경변수에 서비스 계정 JSON 경로
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:

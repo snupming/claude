@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; font-size: 10pt; line-height: 1.6; color: #222; margin: 40px; }
+  h1 { text-align: center; font-size: 20pt; margin-bottom: 5px; }
+  h2 { font-size: 13pt; border-bottom: 2px solid #333; padding-bottom: 5px; margin-top: 30px; }
+  h3 { font-size: 11pt; margin-top: 20px; }
+  .subtitle { text-align: center; color: #666; font-size: 9pt; margin-bottom: 30px; }
+  .info-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .info-table th { background: #f5f5f5; text-align: left; padding: 6px 10px; border: 1px solid #ddd; width: 30%; font-weight: bold; }
+  .info-table td { padding: 6px 10px; border: 1px solid #ddd; word-break: break-all; }
+  .result-box { border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; margin: 10px 0; background: #fafafa; }
+  .result-box .label { font-weight: bold; color: #d32f2f; }
+  .similarity { display: inline-block; background: #fff3e0; padding: 2px 8px; border-radius: 3px; font-weight: bold; }
+  .legal { background: #f5f5f5; padding: 15px; border-left: 4px solid #1976d2; margin: 20px 0; font-size: 9pt; }
+  .disclaimer { margin-top: 30px; padding: 15px; background: #fff8e1; border: 1px solid #ffc107; font-size: 8pt; color: #666; }
+  .footer { text-align: center; margin-top: 40px; font-size: 8pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+  .lawtalk { text-align: center; margin: 30px 0; padding: 20px; border: 2px solid #1976d2; border-radius: 8px; background: #e3f2fd; }
+  .lawtalk a { color: #1976d2; font-weight: bold; text-decoration: none; font-size: 11pt; }
+</style>
+</head>
+<body>
+
+<h1>저작권 침해 증거자료</h1>
+<div class="subtitle">
+  문서번호: {{documentId}} | 생성일시: {{generatedAt}} | 스캔 ID: #{{scanId}}
+</div>
+
+<h2>1. 스캔 개요</h2>
+<table class="info-table">
+  <tr><th>스캔 완료 일시</th><td>{{scanCompletedAt}}</td></tr>
+  <tr><th>검사 이미지 수</th><td>{{totalImages}}개</td></tr>
+  <tr><th>도용 의심 건수</th><td>{{matchesFound}}건</td></tr>
+</table>
+
+<h2>2. 원저작물 정보 (갑 제1호증)</h2>
+{{#originals}}
+<table class="info-table">
+  <tr><th>이미지 ID</th><td>{{id}}</td></tr>
+  <tr><th>파일명</th><td>{{name}}</td></tr>
+  <tr><th>해상도</th><td>{{width}} x {{height}} px</td></tr>
+  <tr><th>파일 크기</th><td>{{fileSize}}</td></tr>
+  <tr><th>업로드 일시</th><td>{{createdAt}}</td></tr>
+  <tr><th>SHA-256 해시</th><td style="font-family:monospace;font-size:8pt;">{{sha256}}</td></tr>
+  <tr><th>워터마크 페이로드</th><td style="font-family:monospace;font-size:8pt;">{{watermarkPayload}}</td></tr>
+</table>
+{{/originals}}
+
+<h2>3. 침해 사실 (갑 제2호증)</h2>
+{{#infringements}}
+<div class="result-box">
+  <div class="label">도용 의심 — 원본 이미지: {{sourceImageName}}</div>
+  <table class="info-table" style="margin-top:8px;">
+    <tr><th>발견 이미지 URL</th><td>{{foundImageUrl}}</td></tr>
+    <tr><th>출처 페이지</th><td>{{sourcePageUrl}}</td></tr>
+    <tr><th>페이지 제목</th><td>{{sourcePageTitle}}</td></tr>
+    <tr><th>검색 엔진</th><td>{{searchEngine}}</td></tr>
+    <tr><th>탐지 일시</th><td>{{detectedAt}}</td></tr>
+    <tr><th>SSCD 유사도</th><td><span class="similarity">{{sscdSimilarity}}</span></td></tr>
+    <tr><th>DINOv2 유사도</th><td><span class="similarity">{{dinoSimilarity}}</span></td></tr>
+  </table>
+</div>
+{{/infringements}}
+
+<h2>4. 기술적 분석 설명</h2>
+<p>본 분석은 다음 두 가지 AI 모델을 사용하여 이미지 유사도를 측정하였습니다:</p>
+<ul>
+  <li><strong>SSCD (Self-Supervised Copy Detection)</strong> — Meta AI 개발, 512차원 임베딩 벡터를 생성하여 이미지 복제를 탐지합니다. 임계값 30% 이상일 경우 복제 의심으로 판정합니다.</li>
+  <li><strong>DINOv2 (Vision Transformer)</strong> — Meta AI 개발, 384차원 임베딩 벡터를 생성하여 이미지의 시각적 특징을 비교합니다. 보조 판정 모델로 사용되며 임계값 70% 이상일 경우 변형 복제를 탐지합니다.</li>
+</ul>
+<p>코사인 유사도(Cosine Similarity)를 사용하여 원본 이미지와 발견 이미지의 임베딩 벡터 간 각도를 측정합니다. 유사도가 높을수록 두 이미지가 동일하거나 유사함을 의미합니다.</p>
+
+<h2>5. 관련 법적 근거</h2>
+<div class="legal">
+  <strong>저작권법 제136조 (벌칙)</strong><br/>
+  저작재산권을 복제, 공연, 공중송신, 전시, 배포, 대여, 2차적저작물 작성의 방법으로 침해한 자는 5년 이하의 징역 또는 5천만원 이하의 벌금에 처하거나, 이를 병과할 수 있다.<br/><br/>
+  <strong>저작권법 제125조 (손해배상의 청구)</strong><br/>
+  저작재산권 침해로 인한 손해배상을 청구하는 경우, 침해자가 그 침해행위에 의하여 이익을 받은 때에는 그 이익의 액을 저작재산권자의 손해액으로 추정한다.<br/><br/>
+  <strong>저작권법 제123조 (침해의 정지 등 청구)</strong><br/>
+  저작권 그 밖에 이 법에 따라 보호되는 권리를 가진 자는 그 권리를 침해하는 자에 대하여 침해의 정지를 청구할 수 있다.
+</div>
+
+<div class="disclaimer">
+  <strong>면책 조항</strong><br/>
+  본 문서는 시스템이 자동으로 수집 및 분석한 데이터를 기반으로 생성된 증거 정리 자료입니다.
+  법적 효력을 갖추기 위해 공증인사무소에서의 공증을 권장합니다.
+  본 문서에 포함된 유사도 분석 결과는 AI 모델에 의한 기술적 판단이며, 최종 침해 여부는 법원의 판단에 따릅니다.
+</div>
+
+<div class="lawtalk">
+  전문 변호사의 도움이 필요하신가요?<br/>
+  <a href="https://www.lawtalk.co.kr/lawyers?keyword=지식재산권&amp;category=지식재산권%2F엔터" target="_blank">
+    로톡에서 지식재산권 전문 변호사 찾기 →
+  </a>
+</div>
+
+<div class="footer">
+  본 문서는 온픽(Ownpic) 도용 탐지 시스템에 의해 자동 생성되었습니다.
+</div>
+
+</body>
+</html>
