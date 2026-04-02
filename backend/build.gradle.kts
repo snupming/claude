@@ -42,11 +42,11 @@ dependencies {
     // ONNX Runtime (ML models)
     implementation("com.microsoft.onnxruntime:onnxruntime:1.22.0")
 
-    // HTML parsing (Google search result scraping)
+    // HTML parsing
     implementation("org.jsoup:jsoup:1.18.3")
 
-    // Playwright (헤드리스 브라우저 — Google Lens 크롤링)
-    implementation("com.microsoft.playwright:playwright:1.52.0")
+    // Google Cloud Vision API (WebDetection — 리버스 이미지 검색)
+    implementation("com.google.cloud:google-cloud-vision:3.61.0")
 
     // WebP/TIFF 등 추가 이미지 포맷 지원 (ImageIO 플러그인)
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")

@@ -15,14 +15,12 @@ public class NoOpReverseImageSearchAdapter implements ReverseImageSearchPort {
     private static final Logger log = LoggerFactory.getLogger(NoOpReverseImageSearchAdapter.class);
 
     public NoOpReverseImageSearchAdapter() {
-        log.warn("Google reverse image search DISABLED (google 프로필 비활성). "
-                + "활성화: spring.profiles.active=google 또는 SPRING_PROFILES_ACTIVE=google");
+        log.warn("Google Cloud Vision DISABLED (google 프로필 비활성). "
+                + "활성화: SPRING_PROFILES_ACTIVE=google + GOOGLE_APPLICATION_CREDENTIALS 설정");
     }
 
     @Override
     public List<ReverseSearchResult> searchByImage(byte[] imageBytes, int maxResults) {
-        log.debug("NoOp searchByImage called — google 프로필이 비활성이므로 빈 결과 반환 (imageBytes={}KB)",
-                imageBytes != null ? imageBytes.length / 1024 : 0);
         return List.of();
     }
 }
