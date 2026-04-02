@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,27 +56,126 @@ public class SellerInfoExtractor {
      */
     @Async
     public void extractAndSave(List<InternetDetectionResult> results) {
+        // 같은 도메인 중복 크롤링 방지
+        Map<String, SellerInfo> domainCache = new HashMap<>();
+
         for (var result : results) {
             try {
-                // sourcePageUrl 우선, 없으면 foundImageUrl에서 도메인 추출
-                String targetUrl = result.getSourcePageUrl();
-                if (targetUrl == null || targetUrl.isBlank()) {
-                    targetUrl = result.getFoundImageUrl();
+                String crawlUrl = resolveTargetUrl(result);
+                String domain = extractDomain(crawlUrl);
+
+                SellerInfo info;
+                if (domain != null && domainCache.containsKey(domain)) {
+                    info = domainCache.get(domain);
+                } else {
+                    info = extract(crawlUrl);
+                    if (domain != null) domainCache.put(domain, info);
                 }
 
-                SellerInfo info = extract(targetUrl);
                 applyToResult(result, info);
                 resultRepository.save(result);
-                log.info("[SellerExtractor] {} → {} ({})",
-                        targetUrl, info.sellerName(), info.platformType());
+                log.info("[SellerExtractor] {} → {} / {} ({})",
+                        crawlUrl, info.sellerName(), info.businessRegNumber(), info.platformType());
             } catch (Exception e) {
-                log.warn("[SellerExtractor] 추출 실패: {} — {}", result.getSourcePageUrl(), e.getMessage());
-                // 플랫폼 타입이라도 저장
-                String fallbackUrl = result.getSourcePageUrl() != null ? result.getSourcePageUrl() : result.getFoundImageUrl();
-                Platform platform = PlatformDetector.detect(fallbackUrl);
+                log.warn("[SellerExtractor] 추출 실패: {} — {}", result.getFoundImageUrl(), e.getMessage());
+                Platform platform = PlatformDetector.detect(resolveTargetUrl(result));
                 result.setPlatformType(platform.type());
                 resultRepository.save(result);
             }
+        }
+    }
+
+    /**
+     * 크롤링 대상 URL 결정.
+     *
+     * 우선순위:
+     * 1. sourcePageUrl (이미지가 있는 실제 페이지)
+     * 2. foundImageUrl → 도메인 추출 → 메인 페이지 (https://도메인/)
+     */
+    private String resolveTargetUrl(InternetDetectionResult result) {
+        // 1. sourcePageUrl이 있으면 그대로 사용
+        if (result.getSourcePageUrl() != null && !result.getSourcePageUrl().isBlank()) {
+            return result.getSourcePageUrl();
+        }
+
+        // 2. foundImageUrl에서 도메인 추출 → 메인 페이지 접속
+        String imageUrl = result.getFoundImageUrl();
+        if (imageUrl == null || imageUrl.isBlank()) return null;
+
+        try {
+            java.net.URI uri = new java.net.URI(imageUrl);
+            String host = uri.getHost();
+            if (host == null) return imageUrl;
+
+            // CDN 도메인에서 원본 도메인 추론
+            host = resolveActualDomain(host);
+
+            String scheme = uri.getScheme() != null ? uri.getScheme() : "https";
+            return scheme + "://" + host + "/";
+        } catch (Exception e) {
+            return imageUrl;
+        }
+    }
+
+    /**
+     * CDN 도메인에서 원본 사이트 도메인 추론.
+     *
+     * 예: cdn.shopify.com → shopify.com (X, 이건 플랫폼)
+     *     img.alicdn.com → aliexpress.com
+     *     shop-phinf.pstatic.net → smartstore.naver.com
+     *     thumbnail6.coupangcdn.com → coupang.com
+     */
+    private String resolveActualDomain(String host) {
+        host = host.toLowerCase();
+
+        // 네이버 CDN → 스마트스토어
+        if (host.contains("pstatic.net") || host.contains("naver.net")) return "smartstore.naver.com";
+
+        // 쿠팡 CDN
+        if (host.contains("coupangcdn.com") || host.contains("coupang.com")) return "www.coupang.com";
+
+        // G마켓/옥션 CDN
+        if (host.contains("gmarket.co.kr") || host.contains("auction.co.kr")) return host;
+        if (host.contains("giordano") || host.contains("g9.co.kr")) return "www.gmarket.co.kr";
+
+        // 11번가 CDN
+        if (host.contains("11st.co.kr")) return "www.11st.co.kr";
+
+        // 알리 CDN
+        if (host.contains("alicdn.com") || host.contains("aliimg.com")) return "www.aliexpress.com";
+
+        // SSG CDN
+        if (host.contains("ssgcdn.com")) return "www.ssg.com";
+
+        // 무신사 CDN
+        if (host.contains("musinsa.com") || host.contains("musinsacdn.com")) return "www.musinsa.com";
+
+        // 오늘의집 CDN
+        if (host.contains("ohou.se") || host.contains("bucketplace")) return "ohou.se";
+
+        // 마켓컬리 CDN
+        if (host.contains("kurly.com") || host.contains("kurlychef")) return "www.kurly.com";
+
+        // 일반적인 CDN 패턴: cdn.example.com, img.example.com → example.com
+        if (host.startsWith("cdn.") || host.startsWith("img.") || host.startsWith("image.")
+                || host.startsWith("images.") || host.startsWith("static.")
+                || host.startsWith("media.") || host.startsWith("thumbnail")) {
+            // cdn.example.com → example.com
+            String stripped = host.replaceFirst("^(cdn|img|image|images|static|media|thumbnail)\\d*\\.", "");
+            if (!stripped.equals(host) && stripped.contains(".")) {
+                return stripped;
+            }
+        }
+
+        return host;
+    }
+
+    private String extractDomain(String url) {
+        if (url == null) return null;
+        try {
+            return new java.net.URI(url).getHost();
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -128,16 +227,23 @@ public class SellerInfoExtractor {
                 targetText = footer.isEmpty() ? doc.body().text() : footer.text();
             }
 
+            String sellerName = extractFirst(STORE_NAME, targetText);
+            // 상호명 못 찾으면 title 태그에서 추출
+            if (sellerName == null || sellerName.isBlank()) {
+                sellerName = doc.title();
+                if (sellerName != null && sellerName.length() > 50) sellerName = sellerName.substring(0, 50);
+            }
+
             return new SellerInfo(
                     platform.type(),
                     platform.category(),
-                    extractFirst(STORE_NAME, targetText),
+                    sellerName,
                     extractFirst(BIZ_NUMBER, targetText),
                     extractFirst(REPRESENTATIVE, targetText),
                     extractFirst(ADDRESS, targetText),
                     extractFirst(PHONE, targetText),
                     extractFirst(EMAIL, targetText),
-                    extractStoreUrl(url, platform)
+                    url  // 실제 접속한 URL 저장
             );
         } catch (Exception e) {
             log.debug("[SellerExtractor] 사업자 정보 추출 실패: {}", e.getMessage());
