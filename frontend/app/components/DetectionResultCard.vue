@@ -149,16 +149,6 @@ function handleImageError(e: Event) {
         </div>
       </div>
 
-      <!-- 추정 라벨 -->
-      <div v-if="result.bestGuessLabel || result.detectedEntity" class="mt-3 flex flex-wrap gap-1.5">
-        <span v-if="result.bestGuessLabel" class="rounded-md bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-          추정: {{ result.bestGuessLabel }}
-        </span>
-        <span v-if="result.detectedEntity" class="rounded-md bg-purple-50 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-          {{ result.detectedEntity }}
-        </span>
-      </div>
-
       <!-- 침해자 정보 요약 -->
       <div class="mt-3 flex items-start gap-2">
         <Globe class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
