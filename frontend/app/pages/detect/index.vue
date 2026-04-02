@@ -93,13 +93,23 @@ function scanTypeLabel(scanType: string) {
   return scanType === 'INTERNET' ? '인터넷 탐지' : 'DB 탐지'
 }
 
-// 유사도 70% 이상만 필터 + 높은 순 정렬
+// 유사도 70% 이상 + dead page 제외 + 판매자 정보 있는 것만 + 높은 순 정렬
 const filteredInternetResults = computed(() => {
   if (!selectedDetail.value) return []
   return selectedDetail.value.internetResults
     .filter((r) => {
+      // 유사도 70% 이상
       const maxSim = Math.max(r.sscdSimilarity ?? 0, r.dinoSimilarity ?? 0)
-      return maxSim >= 0.7
+      if (maxSim < 0.7) return false
+
+      // dead page 필터 (sourcePageUrl 없고 foundImageUrl만 있는 경우)
+      if (!r.sourcePageUrl && !r.sellerName) return false
+
+      // 판매자 정보 있는 것만
+      const hasSellerInfo = r.sellerName || r.businessRegNumber || r.representativeName || r.sourcePageTitle
+      if (!hasSellerInfo) return false
+
+      return true
     })
     .sort((a, b) => {
       const simA = Math.max(a.sscdSimilarity ?? 0, a.dinoSimilarity ?? 0)
