@@ -44,8 +44,10 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
         this.captchaDetector = captchaDetector;
         this.dataExtractor = dataExtractor;
         this.props = props;
-        this.uploadClient = TrustingHttpClientFactory.create(props.requestTimeoutSeconds(), false);
-        this.browseClient = TrustingHttpClientFactory.create(props.requestTimeoutSeconds(), true);
+        // 쿠키를 공유하는 두 클라이언트 생성
+        var cookieManager = new java.net.CookieManager();
+        this.uploadClient = TrustingHttpClientFactory.createWithCookies(props.requestTimeoutSeconds(), false, cookieManager);
+        this.browseClient = TrustingHttpClientFactory.createWithCookies(props.requestTimeoutSeconds(), true, cookieManager);
     }
 
     @Override
@@ -61,6 +63,17 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
             var multipart = MultipartBodyBuilder.buildForLens(imageBytes, "image.jpg", contentType);
             String userAgent = uaRotator.next();
             String uploadUrl = String.format(LENS_UPLOAD_URL, System.currentTimeMillis());
+
+            // 0단계: google.com 방문하여 세션 쿠키 획득
+            HttpRequest warmupRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("https://www.google.com/?hl=ko"))
+                    .header("User-Agent", userAgent)
+                    .header("Accept", "text/html")
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+            browseClient.send(warmupRequest, HttpResponse.BodyHandlers.discarding());
+            log.info("[LensUpload] 0단계 — 쿠키 획득 완료");
 
             // 1단계: 이미지 업로드 (리다이렉트 안 따라감 → Location 헤더에서 vsrid URL 캡처)
             HttpRequest uploadRequest = HttpRequest.newBuilder()

@@ -24,6 +24,10 @@ final class TrustingHttpClientFactory {
     }
 
     static HttpClient create(int timeoutSeconds, boolean followRedirects) {
+        return createWithCookies(timeoutSeconds, followRedirects, new java.net.CookieManager());
+    }
+
+    static HttpClient createWithCookies(int timeoutSeconds, boolean followRedirects, java.net.CookieManager cookieManager) {
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, new TrustManager[]{new TrustAllManager()}, new java.security.SecureRandom());
@@ -36,6 +40,7 @@ final class TrustingHttpClientFactory {
                     .connectTimeout(Duration.ofSeconds(timeoutSeconds))
                     .sslContext(sslContext)
                     .sslParameters(sslParams)
+                    .cookieHandler(cookieManager)
                     .build();
 
             log.info("TrustingHttpClient created — SSL 완화, followRedirects={}", followRedirects);
