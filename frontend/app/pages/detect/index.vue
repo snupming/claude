@@ -322,7 +322,7 @@ onUnmounted(stopPolling)
 
     <!-- Scan Detail Dialog -->
     <Dialog v-model:open="showDetail">
-      <DialogContent class="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>스캔 상세 결과</DialogTitle>
           <DialogDescription v-if="selectedDetail">
@@ -345,55 +345,12 @@ onUnmounted(stopPolling)
               <p class="mt-1 text-sm text-muted-foreground">인터넷에서 유사 이미지를 찾지 못했습니다</p>
             </div>
 
-            <div v-else class="space-y-3">
-              <div
+            <div v-else class="space-y-4">
+              <DetectionResultCard
                 v-for="result in selectedDetail.internetResults"
                 :key="result.id"
-                class="rounded-lg border border-border p-4"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <AlertTriangle class="h-4 w-4 text-destructive" />
-                    <span class="text-sm font-medium">도용 의심</span>
-                    <Badge variant="outline" class="text-xs">{{ result.searchEngine }}</Badge>
-                  </div>
-                  <Badge variant="destructive">{{ result.judgment }}</Badge>
-                </div>
-
-                <div class="mt-3 space-y-2">
-                  <div class="flex items-start gap-2 text-sm">
-                    <img
-                      :src="result.foundImageUrl"
-                      :alt="result.sourcePageTitle || '발견된 이미지'"
-                      class="h-16 w-16 shrink-0 rounded-md border object-cover"
-                      loading="lazy"
-                      @error="($event.target as HTMLImageElement).style.display = 'none'"
-                    />
-                    <div class="min-w-0 flex-1">
-                      <p v-if="result.sourcePageTitle" class="truncate text-sm font-medium">
-                        {{ result.sourcePageTitle }}
-                      </p>
-                      <p v-if="result.sourcePageUrl" class="truncate text-xs text-muted-foreground">
-                        {{ domainFromUrl(result.sourcePageUrl) }}
-                      </p>
-                      <a
-                        v-if="result.sourcePageUrl"
-                        :href="result.sourcePageUrl"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        출처 페이지 열기 <ExternalLink class="h-3 w-3" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-2 flex gap-4 text-xs text-muted-foreground">
-                  <span>SSCD: {{ similarityPercent(result.sscdSimilarity) }}</span>
-                  <span>DINO: {{ similarityPercent(result.dinoSimilarity) }}</span>
-                </div>
-              </div>
+                :result="result"
+              />
             </div>
           </template>
 

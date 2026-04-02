@@ -41,6 +41,31 @@ public class InternetDetectionResult {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    // 판매자/침해자 정보
+    @Column(name = "platform_type", length = 50)
+    private String platformType;
+
+    @Column(name = "seller_name", length = 200)
+    private String sellerName;
+
+    @Column(name = "business_reg_number", length = 20)
+    private String businessRegNumber;
+
+    @Column(name = "representative_name", length = 100)
+    private String representativeName;
+
+    @Column(name = "business_address", length = 500)
+    private String businessAddress;
+
+    @Column(name = "contact_phone", length = 50)
+    private String contactPhone;
+
+    @Column(name = "contact_email", length = 200)
+    private String contactEmail;
+
+    @Column(name = "store_url", length = 500)
+    private String storeUrl;
+
     protected InternetDetectionResult() {}
 
     public InternetDetectionResult(Long scanId, Long sourceImageId,
@@ -69,4 +94,22 @@ public class InternetDetectionResult {
     public String getJudgment() { return judgment; }
     public String getSearchEngine() { return searchEngine; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public String getPlatformType() { return platformType; }
+    public String getSellerName() { return sellerName; }
+    public String getBusinessRegNumber() { return businessRegNumber; }
+    public String getRepresentativeName() { return representativeName; }
+    public String getBusinessAddress() { return businessAddress; }
+    public String getContactPhone() { return contactPhone; }
+    public String getContactEmail() { return contactEmail; }
+    public String getStoreUrl() { return storeUrl; }
+
+    public void setPlatformType(String platformType) { this.platformType = platformType; }
+    public void setSellerName(String sellerName) { this.sellerName = sellerName; }
+    public void setBusinessRegNumber(String businessRegNumber) { this.businessRegNumber = businessRegNumber; }
+    public void setRepresentativeName(String representativeName) { this.representativeName = representativeName; }
+    public void setBusinessAddress(String businessAddress) { this.businessAddress = businessAddress; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+    public void setContactEmail(String contactEmail) { this.contactEmail = contactEmail; }
+    public void setStoreUrl(String storeUrl) { this.storeUrl = storeUrl; }
 }
