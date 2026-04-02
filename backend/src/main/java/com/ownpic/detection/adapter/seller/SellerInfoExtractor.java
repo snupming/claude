@@ -37,11 +37,32 @@ public class SellerInfoExtractor {
 
     // 정규식 패턴 — 한국 사업자 정보 공통
     private static final Pattern BIZ_NUMBER = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
-    private static final Pattern REPRESENTATIVE = Pattern.compile("대표[자]?\\s*[：:.]?\\s*([가-힣]{2,4})");
+    // 대표자: "대표자 : 홍길동" 또는 "대표 : 김철수" — 뒤에 한글 이름만 (사업자, 전화, 주소 등 제외)
+    private static final Pattern REPRESENTATIVE = Pattern.compile(
+            "대표[자]?\\s*[：:.)]?\\s*([가-힣]{2,4})(?=\\s|\\)|,|$|\\d|사업|전화|주소|소재|통신)");
     private static final Pattern PHONE = Pattern.compile("(0\\d{1,2}[-.)\\s]\\d{3,4}[-.)\\s]\\d{4})");
     private static final Pattern EMAIL = Pattern.compile("([\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,})");
-    private static final Pattern STORE_NAME = Pattern.compile("(?:상호[명]?|회사[명]?|업체[명]?)\\s*[：:.]?\\s*([^\\n<,]{2,50})");
-    private static final Pattern ADDRESS = Pattern.compile("(?:소재지|사업장[\\s]*주소|주소)\\s*[：:.]?\\s*([^\\n<]{5,100})");
+    // 상호명 추출 패턴 (우선순위 순)
+    // 1. "(주)OO" 또는 "주식회사 OO" 패턴
+    private static final Pattern COMPANY_CORP = Pattern.compile(
+            "(?:\\(주\\)|주식회사|\\(유\\))\\s*([가-힣a-zA-Z0-9\\s]{2,20})");
+    // 2. "상호 : OO패션" 라벨 패턴
+    private static final Pattern STORE_NAME = Pattern.compile(
+            "(?:상호[명]?|회사[명]?)\\s*[：:.)\\s]\\s*([가-힣a-zA-Z0-9\\s]{2,20})");
+    private static final Pattern ADDRESS = Pattern.compile(
+            "(?:소재지|사업장[\\s]*주소|주소)\\s*[：:.]?\\s*([^\\n<]{5,100})");
+
+    // 에러 페이지 감지 키워드
+    private static final Set<String> ERROR_PAGE_KEYWORDS = Set.of(
+            "access denied", "403 forbidden", "404 not found", "page not found",
+            "서비스 점검", "잠시만 기다려", "접근이 제한", "페이지를 찾을 수 없");
+
+    // CDN 도메인 패턴 (크롤링 스킵)
+    private static final Set<String> CDN_DOMAIN_SUFFIXES = Set.of(
+            "ssgcdn.com", "pstatic.net", "naver.net", "ohousecdn.com",
+            "coupangcdn.com", "cloudfront.net", "akamaized.net",
+            "cloudinary.com", "imgix.net", "fastly.net",
+            "digitalcontent.marksandspencer.app");
     // 통신판매번호: 제YYYY-지역-NNNN호
     private static final Pattern MAIL_ORDER_NUMBER = Pattern.compile("제?\\d{4}-[가-힣]{2,5}-\\d{4}호?");
 
@@ -133,7 +154,27 @@ public class SellerInfoExtractor {
             }
         }
 
+        // 에러 페이지 감지
+        if (isErrorPage(doc)) {
+            log.debug("[SellerExtractor] 에러 페이지 감지 — 스킵: {}", url);
+            return SellerInfo.empty(platform.type(), platform.category());
+        }
+
         return parseBusinessInfo(doc, url, platform, hint);
+    }
+
+    /** 에러 페이지 감지 (Access Denied, 404 등) */
+    private boolean isErrorPage(Document doc) {
+        String title = doc.title() != null ? doc.title().toLowerCase() : "";
+        String bodyText = doc.body() != null ? doc.body().text().toLowerCase() : "";
+        // 본문이 너무 짧으면 에러 페이지
+        if (bodyText.length() < 100) return true;
+        for (String keyword : ERROR_PAGE_KEYWORDS) {
+            if (title.contains(keyword) || bodyText.substring(0, Math.min(500, bodyText.length())).contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -231,11 +272,12 @@ public class SellerInfoExtractor {
             targetText = doc.body().text();
         }
 
-        String sellerName = extractFirst(STORE_NAME, targetText);
-        if (sellerName == null || sellerName.isBlank()) {
-            sellerName = doc.title();
-            if (sellerName != null && sellerName.length() > 50) sellerName = sellerName.substring(0, 50);
+        // 상호명 추출: (주)OO / 주식회사 OO 우선, 없으면 "상호:" 라벨 패턴
+        String sellerName = extractFirst(COMPANY_CORP, targetText);
+        if (sellerName == null) {
+            sellerName = extractFirst(STORE_NAME, targetText);
         }
+        // title은 상호명으로 사용하지 않음 (상품명+플랫폼명이라 부적절)
 
         return new SellerInfo(
                 platform.type(), platform.category(),
@@ -273,9 +315,6 @@ public class SellerInfoExtractor {
             if (dd == null || !"dd".equals(dd.tagName())) continue;
             String value = dd.text().trim();
             if (value.isEmpty()) continue;
-            mapLabelValue(label, value, m -> {
-                // 이 방식은 final 제약이 있어서 배열로 우회
-            });
             if (label.contains("상호") || label.contains("회사") || label.contains("업체")) sellerName = value;
             else if (label.contains("사업자") && (label.contains("번호") || label.contains("등록"))) bizNumber = value;
             else if (label.contains("대표")) representative = value;
@@ -342,10 +381,10 @@ public class SellerInfoExtractor {
             if (host == null) return null;
             host = host.toLowerCase();
 
-            // CDN 접두사 동적 제거
+            // CDN 도메인이면 크롤링 스킵
             if (isCdnDomain(host)) {
-                String stripped = stripCdnPrefix(host);
-                if (stripped != null) host = stripped;
+                log.debug("[SellerExtractor] CDN 도메인 스킵: {}", host);
+                return null;
             }
 
             return "https://" + host + "/";
@@ -354,31 +393,17 @@ public class SellerInfoExtractor {
         }
     }
 
-    /** CDN 도메인인지 동적 판별 */
+    /** CDN 도메인인지 판별 */
     private boolean isCdnDomain(String host) {
+        // 알려진 CDN 도메인
+        for (String suffix : CDN_DOMAIN_SUFFIXES) {
+            if (host.contains(suffix)) return true;
+        }
+        // 접두사 패턴
         return host.startsWith("cdn.") || host.startsWith("img.") || host.startsWith("image.")
                 || host.startsWith("images.") || host.startsWith("static.")
                 || host.startsWith("media.") || host.startsWith("thumbnail")
-                || host.contains("cloudfront.net") || host.contains("akamai")
-                || host.contains("cloudinary.com") || host.contains("imgix.net")
-                || host.contains("pstatic.net") || host.contains("ssgcdn.com");
-    }
-
-    /** CDN 접두사 제거 → 원본 도메인 추론 */
-    private String stripCdnPrefix(String host) {
-        // 범용 CDN (원본 도메인 추론 불가)
-        if (host.contains("cloudfront.net") || host.contains("akamai")
-                || host.contains("cloudinary.com") || host.contains("imgix.net")
-                || host.contains("pstatic.net") || host.contains("ssgcdn.com")) {
-            return null; // 추론 불가 → 스킵
-        }
-
-        // cdn.example.com → example.com
-        String stripped = host.replaceFirst("^(cdn|img|image|images|static|media|thumbnail)\\d*\\.", "");
-        if (!stripped.equals(host) && stripped.contains(".")) {
-            return stripped;
-        }
-        return null;
+                || host.startsWith("assets.") || host.startsWith("res.");
     }
 
     /**
@@ -455,10 +480,6 @@ public class SellerInfoExtractor {
     private String extractFirst(Pattern pattern, String text) {
         Matcher m = pattern.matcher(text);
         return m.find() ? m.group(1).trim() : null;
-    }
-
-    private void mapLabelValue(String label, String value, java.util.function.Consumer<String> noop) {
-        // placeholder for structured mapping — actual logic in parseStructured
     }
 
     private void applyToResult(InternetDetectionResult result, SellerInfo info) {
