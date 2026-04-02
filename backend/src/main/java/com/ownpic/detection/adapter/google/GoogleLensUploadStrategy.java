@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleLensUploadStrategy.class);
-    private static final String LENS_UPLOAD_URL = "https://lens.google.com/v3/upload?hl=ko&re=df&stcs=%d&vpw=1707&vph=906";
+    private static final String LENS_UPLOAD_URL = "https://lens.google.com/v3/upload?ep=gsbubb&st=%d&authuser=0&hl=ko&vpw=1707&vph=906";
     private static final Pattern IMGRES_IMGURL = Pattern.compile("[?&]imgurl=([^&]+)");
     private static final Pattern IMGRES_IMGREFURL = Pattern.compile("[?&]imgrefurl=([^&]+)");
 
