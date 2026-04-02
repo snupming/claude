@@ -308,35 +308,52 @@ public class SellerInfoExtractor {
             searchScope = doc.select("body");
         }
 
-        // dt/dd 쌍
-        for (Element dt : searchScope.select("dt")) {
-            String label = dt.text().trim();
-            Element dd = dt.nextElementSibling();
-            if (dd == null || !"dd".equals(dd.tagName())) continue;
-            String value = dd.text().trim();
-            if (value.isEmpty()) continue;
-            if (label.contains("상호") || label.contains("회사") || label.contains("업체")) sellerName = value;
-            else if (label.contains("사업자") && (label.contains("번호") || label.contains("등록"))) bizNumber = value;
-            else if (label.contains("대표")) representative = value;
-            else if (label.contains("소재지") || label.contains("주소")) address = value;
-            else if (label.contains("전화") || label.contains("연락") || label.contains("고객센터")) phone = value;
-            else if (label.contains("이메일") || label.contains("mail")) email = value;
-        }
+        // dt/dd + th/td 공통 파싱 (라벨-값 쌍)
+        List<Element> labelElements = new ArrayList<>();
+        labelElements.addAll(searchScope.select("dt"));
+        labelElements.addAll(searchScope.select("th"));
 
-        // th/td 쌍
-        for (Element th : searchScope.select("th")) {
-            String label = th.text().trim();
-            Element td = th.nextElementSibling();
-            if (td == null || !"td".equals(td.tagName())) continue;
-            String value = td.text().trim();
+        for (Element labelEl : labelElements) {
+            String label = labelEl.text().trim().toLowerCase();
+            Element valueEl = labelEl.nextElementSibling();
+            if (valueEl == null) continue;
+            String sibTag = valueEl.tagName();
+            if (!"dd".equals(sibTag) && !"td".equals(sibTag)) continue;
+            String value = valueEl.text().trim();
             if (value.isEmpty()) continue;
 
-            if (sellerName == null && (label.contains("상호") || label.contains("회사"))) sellerName = value;
-            else if (bizNumber == null && label.contains("사업자")) bizNumber = value;
-            else if (representative == null && label.contains("대표")) representative = value;
-            else if (address == null && (label.contains("소재지") || label.contains("주소"))) address = value;
-            else if (phone == null && (label.contains("전화") || label.contains("연락"))) phone = value;
-            else if (email == null && (label.contains("이메일") || label.contains("mail"))) email = value;
+            // "상호/대표자: OO / 홍길동" 복합 라벨 처리 (쿠팡 등)
+            if (label.contains("상호") && label.contains("대표")) {
+                String[] parts = value.split("[/,]", 2);
+                if (sellerName == null) sellerName = parts[0].trim();
+                if (representative == null && parts.length > 1) representative = parts[1].trim();
+            }
+            // 상호명
+            else if (sellerName == null && (label.contains("상호") || label.contains("회사")
+                    || label.contains("업체") || label.contains("판매자") || label.contains("seller"))) {
+                sellerName = value;
+            }
+            // 사업자번호
+            else if (bizNumber == null && (label.contains("사업자") || label.contains("business"))) {
+                bizNumber = value;
+            }
+            // 대표자
+            else if (representative == null && label.contains("대표")) {
+                representative = value;
+            }
+            // 주소
+            else if (address == null && (label.contains("소재지") || label.contains("주소") || label.contains("address"))) {
+                address = value;
+            }
+            // 연락처
+            else if (phone == null && (label.contains("전화") || label.contains("연락") || label.contains("고객센터")
+                    || label.contains("연락처") || label.equals("tel"))) {
+                phone = value;
+            }
+            // 이메일
+            else if (email == null && (label.contains("이메일") || label.contains("mail") || label.contains("e-mail"))) {
+                email = value;
+            }
         }
 
         if (sellerName == null && bizNumber == null && representative == null) return null;
