@@ -58,15 +58,22 @@ public class SellerInfoExtractor {
     public void extractAndSave(List<InternetDetectionResult> results) {
         for (var result : results) {
             try {
-                SellerInfo info = extract(result.getSourcePageUrl());
+                // sourcePageUrl 우선, 없으면 foundImageUrl에서 도메인 추출
+                String targetUrl = result.getSourcePageUrl();
+                if (targetUrl == null || targetUrl.isBlank()) {
+                    targetUrl = result.getFoundImageUrl();
+                }
+
+                SellerInfo info = extract(targetUrl);
                 applyToResult(result, info);
                 resultRepository.save(result);
                 log.info("[SellerExtractor] {} → {} ({})",
-                        result.getSourcePageUrl(), info.sellerName(), info.platformType());
+                        targetUrl, info.sellerName(), info.platformType());
             } catch (Exception e) {
                 log.warn("[SellerExtractor] 추출 실패: {} — {}", result.getSourcePageUrl(), e.getMessage());
                 // 플랫폼 타입이라도 저장
-                Platform platform = PlatformDetector.detect(result.getSourcePageUrl());
+                String fallbackUrl = result.getSourcePageUrl() != null ? result.getSourcePageUrl() : result.getFoundImageUrl();
+                Platform platform = PlatformDetector.detect(fallbackUrl);
                 result.setPlatformType(platform.type());
                 resultRepository.save(result);
             }

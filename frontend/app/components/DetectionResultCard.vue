@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Globe, User, Building2, ImageIcon } from 'lucide-vue-next'
-import type { InternetDetectionResult } from '@/composables/useDetection'
-import { Skeleton } from '@/components/ui/skeleton'
+import type { InternetDetectionResult } from '~/composables/useDetection'
 
 const props = defineProps<{
   result: InternetDetectionResult
@@ -97,7 +96,7 @@ function handleImageError(e: Event) {
         <!-- 원본 이미지 -->
         <div class="text-center">
           <div :class="['relative mx-auto overflow-hidden rounded-lg border-2 border-green-300 bg-muted', expanded ? 'h-64 w-64' : 'h-36 w-36']">
-            <Skeleton v-if="isLoadingOriginal" class="h-full w-full" />
+            <div v-if="isLoadingOriginal" class="h-full w-full animate-pulse bg-muted" />
             <img
               v-else-if="originalImageUrl"
               :src="originalImageUrl"
