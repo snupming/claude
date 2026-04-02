@@ -135,10 +135,18 @@ public class SellerInfoExtractor {
             return extractOverseas(url, platform);
         }
 
-        // 1차: Selenium으로 접속 (JS 동적 로딩 대응)
+        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡, 네이버 스마트스토어 등)
         String pageSource = null;
         if (seleniumAdapter.isEnabled()) {
+            log.info("[SellerExtractor] Selenium으로 접속: {} ({})", url, platform.type());
             pageSource = seleniumAdapter.fetchPageWithScroll(url);
+            if (pageSource != null) {
+                log.info("[SellerExtractor] Selenium 페이지 로드 완료: {}자", pageSource.length());
+            } else {
+                log.warn("[SellerExtractor] Selenium 페이지 로드 실패: {}", url);
+            }
+        } else {
+            log.debug("[SellerExtractor] Selenium 비활성 — JSoup fallback: {}", url);
         }
 
         // 2차: Selenium 실패 시 JSoup fallback
