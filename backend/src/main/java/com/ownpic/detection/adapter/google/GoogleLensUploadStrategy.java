@@ -1,17 +1,25 @@
 package com.ownpic.detection.adapter.google;
 
 import com.ownpic.detection.port.ReverseImageSearchPort.ReverseSearchResult;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @Profile("google")
@@ -19,6 +27,8 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
 
     private static final Logger log = LoggerFactory.getLogger(GoogleLensUploadStrategy.class);
     private static final String LENS_UPLOAD_URL = "https://lens.google.com/v3/upload";
+    private static final Pattern IMGRES_IMGURL = Pattern.compile("[?&]imgurl=([^&]+)");
+    private static final Pattern IMGRES_IMGREFURL = Pattern.compile("[?&]imgrefurl=([^&]+)");
 
     private final HttpClient httpClient;
     private final UserAgentRotator uaRotator;
@@ -46,12 +56,14 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
     public List<ReverseSearchResult> search(byte[] imageBytes, int maxResults) throws GoogleSearchException {
         log.info("[LensUpload] 요청 시작 — imageBytes={}KB", imageBytes.length / 1024);
         try {
+            // 1단계: Lens에 이미지 업로드 → 리다이렉트 URL 획득
             String contentType = detectContentType(imageBytes);
             var multipart = MultipartBodyBuilder.buildForLens(imageBytes, "image.jpg", contentType);
+            String userAgent = uaRotator.next();
 
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpRequest uploadRequest = HttpRequest.newBuilder()
                     .uri(URI.create(LENS_UPLOAD_URL))
-                    .header("User-Agent", uaRotator.next())
+                    .header("User-Agent", userAgent)
                     .header("Content-Type", multipart.contentType())
                     .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .header("Accept-Language", "ko-KR,ko;q=0.9,en;q=0.8")
@@ -61,33 +73,71 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
                     .POST(multipart.bodyPublisher())
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            String html = response.body();
-            String finalUrl = response.uri().toString();
-            int status = response.statusCode();
+            HttpResponse<String> uploadResponse = httpClient.send(uploadRequest, HttpResponse.BodyHandlers.ofString());
+            String lensHtml = uploadResponse.body();
+            String lensUrl = uploadResponse.uri().toString();
+            int lensStatus = uploadResponse.statusCode();
 
-            log.info("[LensUpload] 응답 — status={}, finalUrl={}, bodyLength={}",
-                    status, finalUrl, html.length());
+            log.info("[LensUpload] 1단계 응답 — status={}, redirectUrl={}", lensStatus, lensUrl);
 
-            if (captchaDetector.isCaptchaResponse(html, finalUrl, status)) {
-                throw new GoogleSearchException("CAPTCHA detected on Lens upload", true, status);
+            if (captchaDetector.isCaptchaResponse(lensHtml, lensUrl, lensStatus)) {
+                throw new GoogleSearchException("CAPTCHA detected on Lens upload", true, lensStatus);
             }
 
-            if (status != 200) {
-                log.warn("[LensUpload] 비정상 상태 — status={}, body(500자)={}",
-                        status, html.substring(0, Math.min(html.length(), 500)));
-                throw new GoogleSearchException("Lens upload unexpected status: " + status, false, status);
+            // 1단계 결과에서 먼저 InlineDataExtractor로 시도
+            List<ReverseSearchResult> results = dataExtractor.extract(lensHtml, maxResults);
+            if (!results.isEmpty()) {
+                log.info("[LensUpload] 1단계에서 {} 결과 추출", results.size());
+                return results;
             }
 
-            List<ReverseSearchResult> results = dataExtractor.extract(html, maxResults);
-            if (results.isEmpty()) {
-                log.warn("[LensUpload] 0건 — HTML title: {}, AF_initDataCallback 수: {}, body(500자): {}",
-                        org.jsoup.Jsoup.parse(html).title(),
-                        countOccurrences(html, "AF_initDataCallback"),
-                        html.substring(0, Math.min(html.length(), 500)));
+            // 2단계: 리다이렉트된 URL에 이미지 검색 파라미터 추가하여 재요청
+            if (lensUrl.contains("google.com/search")) {
+                // udm=2 유지 (이미 있으면), tbm=isch 추가하여 이미지 탭 요청
+                String imageSearchUrl = lensUrl;
+                if (!imageSearchUrl.contains("tbm=")) {
+                    imageSearchUrl += "&tbm=isch";
+                }
+
+                log.info("[LensUpload] 2단계: 이미지 탭 요청 — {}", imageSearchUrl);
+
+                HttpRequest imageRequest = HttpRequest.newBuilder()
+                        .uri(URI.create(imageSearchUrl))
+                        .header("User-Agent", userAgent)
+                        .header("Accept", "text/html,application/xhtml+xml")
+                        .header("Accept-Language", "ko-KR,ko;q=0.9,en;q=0.8")
+                        .header("Referer", lensUrl)
+                        .timeout(Duration.ofSeconds(props.requestTimeoutSeconds()))
+                        .GET()
+                        .build();
+
+                HttpResponse<String> imageResponse = httpClient.send(imageRequest, HttpResponse.BodyHandlers.ofString());
+                String imageHtml = imageResponse.body();
+                String imageFinalUrl = imageResponse.uri().toString();
+                int imageStatus = imageResponse.statusCode();
+
+                log.info("[LensUpload] 2단계 응답 — status={}, url={}, bodyLength={}",
+                        imageStatus, imageFinalUrl, imageHtml.length());
+
+                if (imageStatus == 200) {
+                    results = parseImageResults(imageHtml, maxResults);
+                    log.info("[LensUpload] 2단계 파싱 — {} 결과", results.size());
+                    if (!results.isEmpty()) {
+                        return results;
+                    }
+                }
             }
-            log.info("[LensUpload] 완료 — {} 결과", results.size());
-            return results;
+
+            // 3단계: 1단계 HTML에서도 웹 검색 결과 파싱 시도
+            results = parseImageResults(lensHtml, maxResults);
+            if (!results.isEmpty()) {
+                log.info("[LensUpload] 3단계 (1단계 HTML 재파싱) — {} 결과", results.size());
+                return results;
+            }
+
+            log.warn("[LensUpload] 모든 단계 실패 — 0건, title: {}",
+                    Jsoup.parse(lensHtml).title());
+            return List.of();
 
         } catch (GoogleSearchException e) {
             throw e;
@@ -97,16 +147,72 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
         }
     }
 
+    /**
+     * 구글 이미지 검색 결과 HTML을 파싱한다.
+     * imgres 링크, data-ri div, isv-r div, 외부 이미지 썸네일 등 다양한 전략 사용.
+     */
+    private List<ReverseSearchResult> parseImageResults(String html, int maxResults) {
+        Document doc = Jsoup.parse(html);
+        List<ReverseSearchResult> results = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        // 1. /imgres? 링크
+        for (Element link : doc.select("a[href*=/imgres?]")) {
+            if (results.size() >= maxResults) break;
+            String href = link.attr("href");
+            String imageUrl = extractParam(href, IMGRES_IMGURL);
+            String pageUrl = extractParam(href, IMGRES_IMGREFURL);
+            if (imageUrl != null && seen.add(imageUrl)) {
+                results.add(new ReverseSearchResult(imageUrl, pageUrl, link.text()));
+            }
+        }
+
+        // 2. data-ri / isv-r 이미지 그리드
+        if (results.isEmpty()) {
+            for (Element div : doc.select("div[data-ri], div.isv-r")) {
+                if (results.size() >= maxResults) break;
+                Element img = div.selectFirst("img[src], img[data-src]");
+                Element anchor = div.selectFirst("a[href]");
+                if (img == null) continue;
+                String imgSrc = img.hasAttr("data-src") ? img.attr("data-src") : img.attr("src");
+                if (imgSrc.isEmpty() || imgSrc.startsWith("data:")) continue;
+                String pageUrl = anchor != null ? anchor.attr("href") : null;
+                if (pageUrl != null && pageUrl.startsWith("/")) pageUrl = null;
+                if (seen.add(imgSrc)) {
+                    results.add(new ReverseSearchResult(imgSrc, pageUrl, img.attr("alt")));
+                }
+            }
+        }
+
+        // 3. 외부 이미지 (google/gstatic 제외)
+        if (results.isEmpty()) {
+            Elements imgs = doc.select("img[src^=http]");
+            for (Element img : imgs) {
+                if (results.size() >= maxResults) break;
+                String src = img.attr("src");
+                if (src.contains("google.") || src.contains("gstatic.") || src.contains("youtube.")) continue;
+                Element parentLink = img.closest("a[href^=http]");
+                String pageUrl = parentLink != null ? parentLink.attr("href") : null;
+                if (pageUrl != null && pageUrl.contains("google.")) pageUrl = null;
+                if (seen.add(src)) {
+                    results.add(new ReverseSearchResult(src, pageUrl, img.attr("alt")));
+                }
+            }
+        }
+
+        return results;
+    }
+
+    private String extractParam(String url, Pattern pattern) {
+        Matcher m = pattern.matcher(url);
+        if (!m.find()) return null;
+        return URLDecoder.decode(m.group(1), StandardCharsets.UTF_8);
+    }
+
     private String detectContentType(byte[] bytes) {
         if (bytes.length >= 3 && bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xD8) return "image/jpeg";
         if (bytes.length >= 8 && bytes[0] == (byte) 0x89 && bytes[1] == 0x50) return "image/png";
         if (bytes.length >= 4 && bytes[0] == 0x52 && bytes[1] == 0x49) return "image/webp";
         return "image/jpeg";
-    }
-
-    private static int countOccurrences(String text, String sub) {
-        int count = 0, idx = 0;
-        while ((idx = text.indexOf(sub, idx)) != -1) { count++; idx += sub.length(); }
-        return count;
     }
 }
