@@ -53,11 +53,11 @@ public class SeleniumLensAdapter {
                     "--lang=ko-KR",
                     "--window-size=1920,1080"
             );
-            // navigator.webdriver 감지 방지 (쿠팡 CAPTCHA 우회)
+            // navigator.webdriver 감지 방지
             options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
             options.setExperimentalOption("useAutomationExtension", false);
-            // headless 모드 비활성 (구글 차단 방지)
-            // 서버 환경에서 필요하면 활성화: options.addArguments("--headless=new");
+            // headless 모드 (창 안 뜸)
+            options.addArguments("--headless=new");
 
             driver = new ChromeDriver(options);
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));

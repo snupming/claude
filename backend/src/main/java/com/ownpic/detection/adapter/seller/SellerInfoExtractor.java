@@ -37,15 +37,15 @@ public class SellerInfoExtractor {
 
     // 정규식 패턴 — 한국 사업자 정보 공통
     private static final Pattern BIZ_NUMBER = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
-    // 대표자: "대표자 : 홍길동" 또는 "대표 : 김철수" — 뒤에 한글 이름만 (사업자, 전화, 주소 등 제외)
+    // 대표자: "대표자 : 홍길동" — "대표이사" 같은 직함은 제외
     private static final Pattern REPRESENTATIVE = Pattern.compile(
-            "대표[자]?\\s*[：:.)]?\\s*([가-힣]{2,4})(?=\\s|\\)|,|$|\\d|사업|전화|주소|소재|통신)");
+            "대표[자]?\\s*[：:.)]?\\s*(?!이사|이사\\s)([가-힣]{2,4})(?=\\s|\\)|,|$|\\d|사업|전화|주소|소재|통신)");
     private static final Pattern PHONE = Pattern.compile("(0\\d{1,2}[-.)\\s]\\d{3,4}[-.)\\s]\\d{4})");
     private static final Pattern EMAIL = Pattern.compile("([\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,})");
     // 상호명 추출 패턴 (우선순위 순)
-    // 1. "(주)OO" 또는 "주식회사 OO" 패턴
+    // 1. "(주)OO" 또는 "주식회사 OO" 패턴 — "대표이사" 등 직함 제외
     private static final Pattern COMPANY_CORP = Pattern.compile(
-            "(?:\\(주\\)|주식회사|\\(유\\))\\s*([가-힣a-zA-Z0-9\\s]{2,20})");
+            "(?:\\(주\\)|주식회사|\\(유\\))\\s*([가-힣a-zA-Z0-9\\s]{2,20}?)(?=\\s*\\(|\\s*대표|$)");
     // 2. "상호 : OO패션" 라벨 패턴
     private static final Pattern STORE_NAME = Pattern.compile(
             "(?:상호[명]?|회사[명]?)\\s*[：:.)\\s]\\s*([가-힣a-zA-Z0-9\\s]{2,20})");
@@ -57,12 +57,17 @@ public class SellerInfoExtractor {
             "access denied", "403 forbidden", "404 not found", "page not found",
             "서비스 점검", "잠시만 기다려", "접근이 제한", "페이지를 찾을 수 없");
 
-    // CDN 도메인 패턴 (크롤링 스킵)
-    private static final Set<String> CDN_DOMAIN_SUFFIXES = Set.of(
+    // 크롤링 스킵 도메인 (CDN + 플랫폼 본사 페이지)
+    private static final Set<String> SKIP_DOMAINS = Set.of(
+            // CDN
             "ssgcdn.com", "pstatic.net", "naver.net", "ohousecdn.com",
             "coupangcdn.com", "cloudfront.net", "akamaized.net",
             "cloudinary.com", "imgix.net", "fastly.net",
-            "digitalcontent.marksandspencer.app");
+            "digitalcontent.marksandspencer.app", "susercontent.com",
+            // 플랫폼 본사/프로모션 페이지 (통신판매중개자 본사 정보만 있음)
+            "pages.coupang.com", "display.coupang.com",
+            "campaign.naver.com", "adcr.naver.com",
+            "ads.google.com", "doubleclick.net");
     // 통신판매번호: 제YYYY-지역-NNNN호
     private static final Pattern MAIL_ORDER_NUMBER = Pattern.compile("제?\\d{4}-[가-힣]{2,5}-\\d{4}호?");
 
@@ -135,10 +140,18 @@ public class SellerInfoExtractor {
             return extractOverseas(url, platform);
         }
 
-        // 1차: Selenium으로 접속 (JS 동적 로딩 대응)
+        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡, 네이버 스마트스토어 등)
         String pageSource = null;
         if (seleniumAdapter.isEnabled()) {
+            log.info("[SellerExtractor] Selenium으로 접속: {} ({})", url, platform.type());
             pageSource = seleniumAdapter.fetchPageWithScroll(url);
+            if (pageSource != null) {
+                log.info("[SellerExtractor] Selenium 페이지 로드 완료: {}자", pageSource.length());
+            } else {
+                log.warn("[SellerExtractor] Selenium 페이지 로드 실패: {}", url);
+            }
+        } else {
+            log.debug("[SellerExtractor] Selenium 비활성 — JSoup fallback: {}", url);
         }
 
         // 2차: Selenium 실패 시 JSoup fallback
@@ -399,7 +412,7 @@ public class SellerInfoExtractor {
             host = host.toLowerCase();
 
             // CDN 도메인이면 크롤링 스킵
-            if (isCdnDomain(host)) {
+            if (isSkipDomain(host)) {
                 log.debug("[SellerExtractor] CDN 도메인 스킵: {}", host);
                 return null;
             }
@@ -410,17 +423,16 @@ public class SellerInfoExtractor {
         }
     }
 
-    /** CDN 도메인인지 판별 */
-    private boolean isCdnDomain(String host) {
-        // 알려진 CDN 도메인
-        for (String suffix : CDN_DOMAIN_SUFFIXES) {
-            if (host.contains(suffix)) return true;
+    /** 크롤링 스킵 도메인 판별 (CDN + 플랫폼 본사 프로모션) */
+    private boolean isSkipDomain(String host) {
+        for (String domain : SKIP_DOMAINS) {
+            if (host.contains(domain)) return true;
         }
-        // 접두사 패턴
         return host.startsWith("cdn.") || host.startsWith("img.") || host.startsWith("image.")
                 || host.startsWith("images.") || host.startsWith("static.")
                 || host.startsWith("media.") || host.startsWith("thumbnail")
-                || host.startsWith("assets.") || host.startsWith("res.");
+                || host.startsWith("assets.") || host.startsWith("res.")
+                || host.startsWith("down-") || host.startsWith("pages.");
     }
 
     /**
