@@ -49,14 +49,13 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.3")
 
     // Google Cloud Vision API (WebDetection — 리버스 이미지 검색)
-    implementation("com.google.cloud:google-cloud-vision:3.61.0")
+    implementation("com.google.cloud:google-cloud-vision:3.86.0")
 
     // WebP/TIFF 등 추가 이미지 포맷 지원 (ImageIO 플러그인)
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
 
     // PDF 생성 (HTML → PDF, 한글 폰트 지원)
-    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.1.37")
-
+    implementation("io.github.openhtmltopdf:openhtmltopdf-pdfbox:1.1.37")
     // DOCX 생성
     implementation("org.apache.poi:poi-ooxml:5.4.0")
 
