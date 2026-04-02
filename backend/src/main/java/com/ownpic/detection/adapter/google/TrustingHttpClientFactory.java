@@ -1,6 +1,7 @@
 package com.ownpic.detection.adapter.google;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.net.http.HttpClient;
@@ -13,6 +14,9 @@ import java.time.Duration;
  */
 final class TrustingHttpClientFactory {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(TrustingHttpClientFactory.class);
+
     private TrustingHttpClientFactory() {}
 
     static HttpClient create(int timeoutSeconds) {
@@ -20,13 +24,20 @@ final class TrustingHttpClientFactory {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, new TrustManager[]{new TrustAllManager()}, new java.security.SecureRandom());
 
-            return HttpClient.newBuilder()
+            SSLParameters sslParams = new SSLParameters();
+            sslParams.setEndpointIdentificationAlgorithm(null); // 호스트명 검증 비활성화
+
+            HttpClient client = HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NORMAL)
                     .connectTimeout(Duration.ofSeconds(timeoutSeconds))
                     .sslContext(sslContext)
+                    .sslParameters(sslParams)
                     .build();
+
+            log.info("TrustingHttpClient created — SSL 검증 완화 적용됨");
+            return client;
         } catch (Exception e) {
-            // SSLContext 생성 실패 시 기본 HttpClient 사용
+            log.error("TrustingHttpClient 생성 실패 — 기본 HttpClient 사용: {}", e.getMessage());
             return HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NORMAL)
                     .connectTimeout(Duration.ofSeconds(timeoutSeconds))
