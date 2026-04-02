@@ -48,17 +48,19 @@ public class InlineDataExtractor {
     public List<ReverseSearchResult> extract(String html, int maxResults) {
         // 1차: AF_initDataCallback 블록에서 추출
         List<String> dataBlocks = findAfInitDataBlocks(html);
+        log.info("[InlineDataExtractor] AF_initDataCallback 블록: {}개", dataBlocks.size());
+
         if (!dataBlocks.isEmpty()) {
             List<ReverseSearchResult> results = extractFromDataBlocks(dataBlocks, maxResults);
+            log.info("[InlineDataExtractor] AF 블록에서 {} 결과 추출", results.size());
             if (!results.isEmpty()) {
-                log.debug("Extracted {} results from AF_initDataCallback blocks", results.size());
                 return results;
             }
         }
 
         // 2차: Jsoup HTML 파싱 fallback
         List<ReverseSearchResult> results = extractFromHtml(html, maxResults);
-        log.debug("Extracted {} results from HTML fallback", results.size());
+        log.info("[InlineDataExtractor] HTML fallback에서 {} 결과 추출", results.size());
         return results;
     }
 

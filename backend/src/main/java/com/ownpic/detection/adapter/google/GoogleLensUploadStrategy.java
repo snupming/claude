@@ -46,7 +46,8 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
     public List<ReverseSearchResult> search(byte[] imageBytes, int maxResults) throws GoogleSearchException {
         log.info("[LensUpload] 요청 시작 — imageBytes={}KB", imageBytes.length / 1024);
         try {
-            var multipart = MultipartBodyBuilder.build(imageBytes, "image.jpg");
+            String contentType = detectContentType(imageBytes);
+            var multipart = MultipartBodyBuilder.buildForLens(imageBytes, "image.jpg", contentType);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(LENS_UPLOAD_URL))
@@ -79,6 +80,12 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
             }
 
             List<ReverseSearchResult> results = dataExtractor.extract(html, maxResults);
+            if (results.isEmpty()) {
+                log.warn("[LensUpload] 0건 — HTML title: {}, AF_initDataCallback 수: {}, body(500자): {}",
+                        org.jsoup.Jsoup.parse(html).title(),
+                        countOccurrences(html, "AF_initDataCallback"),
+                        html.substring(0, Math.min(html.length(), 500)));
+            }
             log.info("[LensUpload] 완료 — {} 결과", results.size());
             return results;
 
@@ -88,5 +95,18 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
             log.error("[LensUpload] 요청 실패", e);
             throw new GoogleSearchException("Lens upload request failed", e);
         }
+    }
+
+    private String detectContentType(byte[] bytes) {
+        if (bytes.length >= 3 && bytes[0] == (byte) 0xFF && bytes[1] == (byte) 0xD8) return "image/jpeg";
+        if (bytes.length >= 8 && bytes[0] == (byte) 0x89 && bytes[1] == 0x50) return "image/png";
+        if (bytes.length >= 4 && bytes[0] == 0x52 && bytes[1] == 0x49) return "image/webp";
+        return "image/jpeg";
+    }
+
+    private static int countOccurrences(String text, String sub) {
+        int count = 0, idx = 0;
+        while ((idx = text.indexOf(sub, idx)) != -1) { count++; idx += sub.length(); }
+        return count;
     }
 }

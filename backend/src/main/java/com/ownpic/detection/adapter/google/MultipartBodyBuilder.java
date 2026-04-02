@@ -54,5 +54,36 @@ final class MultipartBodyBuilder {
         return "image/jpeg"; // default
     }
 
+    /**
+     * Google Lens 업로드용 multipart — 필드명: "encoded_image", Content-Type 명시
+     */
+    static Result buildForLens(byte[] imageBytes, String filename, String imageContentType) {
+        String boundary = "----WebKitFormBoundary" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+
+        List<byte[]> parts = new ArrayList<>();
+
+        String header = "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"encoded_image\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: " + imageContentType + "\r\n\r\n";
+        parts.add(header.getBytes(StandardCharsets.UTF_8));
+        parts.add(imageBytes);
+        parts.add("\r\n".getBytes(StandardCharsets.UTF_8));
+
+        parts.add(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+        int totalLen = parts.stream().mapToInt(b -> b.length).sum();
+        byte[] body = new byte[totalLen];
+        int offset = 0;
+        for (byte[] part : parts) {
+            System.arraycopy(part, 0, body, offset, part.length);
+            offset += part.length;
+        }
+
+        return new Result(
+                HttpRequest.BodyPublishers.ofByteArray(body),
+                "multipart/form-data; boundary=" + boundary
+        );
+    }
+
     record Result(HttpRequest.BodyPublisher bodyPublisher, String contentType) {}
 }
