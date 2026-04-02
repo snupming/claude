@@ -32,6 +32,14 @@ export interface InternetDetectionResult {
   judgment: string
   searchEngine: string
   createdAt: string
+  platformType: string | null
+  sellerName: string | null
+  businessRegNumber: string | null
+  representativeName: string | null
+  businessAddress: string | null
+  contactPhone: string | null
+  contactEmail: string | null
+  storeUrl: string | null
 }
 
 export interface ScanDetail {

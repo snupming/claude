@@ -1,5 +1,6 @@
 package com.ownpic.detection;
 
+import com.ownpic.detection.adapter.seller.SellerInfoExtractor;
 import com.ownpic.detection.domain.*;
 import com.ownpic.detection.dto.DetectionScanResponse;
 import com.ownpic.detection.port.*;
@@ -44,6 +45,7 @@ public class InternetDetectionService {
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
     private final ImageCaptionPort captionPort;
+    private final SellerInfoExtractor sellerInfoExtractor;
 
     public InternetDetectionService(DetectionScanRepository scanRepository,
                                     InternetDetectionResultRepository resultRepository,
@@ -54,7 +56,8 @@ public class InternetDetectionService {
                                     ImageStoragePort storagePort,
                                     SscdEmbeddingPort sscdPort,
                                     DinoEmbeddingPort dinoPort,
-                                    ImageCaptionPort captionPort) {
+                                    ImageCaptionPort captionPort,
+                                    SellerInfoExtractor sellerInfoExtractor) {
         this.scanRepository = scanRepository;
         this.resultRepository = resultRepository;
         this.imageRepository = imageRepository;
@@ -65,6 +68,7 @@ public class InternetDetectionService {
         this.sscdPort = sscdPort;
         this.dinoPort = dinoPort;
         this.captionPort = captionPort;
+        this.sellerInfoExtractor = sellerInfoExtractor;
     }
 
     @Transactional
@@ -173,6 +177,12 @@ public class InternetDetectionService {
             }
 
             resultRepository.saveAll(allResults);
+
+            // 판매자 정보 비동기 추출 (탐지 속도에 영향 없음)
+            if (!allResults.isEmpty()) {
+                sellerInfoExtractor.extractAndSave(allResults);
+            }
+
             completeScan(scanId, allResults.size());
 
             log.info("Internet scan {} completed: {} images scanned, {} matches",
