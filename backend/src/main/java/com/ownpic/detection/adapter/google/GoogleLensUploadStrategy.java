@@ -26,7 +26,8 @@ import java.util.regex.Pattern;
 public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleLensUploadStrategy.class);
-    private static final String LENS_UPLOAD_URL = "https://lens.google.com/v3/upload";
+    private static final String LENS_UPLOAD_URL = "https://lens.google.com/v3/upload"
+            + "?hl=ko&re=df&stcs=%d&vpw=1707&vph=906";
     private static final Pattern IMGRES_IMGURL = Pattern.compile("[?&]imgurl=([^&]+)");
     private static final Pattern IMGRES_IMGREFURL = Pattern.compile("[?&]imgrefurl=([^&]+)");
 
@@ -60,15 +61,18 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
             String contentType = detectContentType(imageBytes);
             var multipart = MultipartBodyBuilder.buildForLens(imageBytes, "image.jpg", contentType);
             String userAgent = uaRotator.next();
+            String uploadUrl = String.format(LENS_UPLOAD_URL, System.currentTimeMillis());
+
+            log.info("[LensUpload] 업로드 URL: {}", uploadUrl);
 
             HttpRequest uploadRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(LENS_UPLOAD_URL))
+                    .uri(URI.create(uploadUrl))
                     .header("User-Agent", userAgent)
                     .header("Content-Type", multipart.contentType())
                     .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .header("Accept-Language", "ko-KR,ko;q=0.9,en;q=0.8")
-                    .header("Referer", "https://lens.google.com/")
-                    .header("Origin", "https://lens.google.com")
+                    .header("Referer", "https://www.google.com/")
+                    .header("Origin", "https://www.google.com")
                     .timeout(Duration.ofSeconds(props.requestTimeoutSeconds()))
                     .POST(multipart.bodyPublisher())
                     .build();
@@ -91,18 +95,11 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
                 return results;
             }
 
-            // 2단계: vsrid를 유지하고 udm=26 → udm=2로 변경하여 이미지 검색 결과 요청
+            // 2단계: vsrid 유지, source를 브라우저와 동일하게 변경하여 재요청
             if (lensUrl.contains("google.com/search") && lensUrl.contains("vsrid=")) {
+                // source를 브라우저와 동일하게 gsbubb로 변경
                 String imageSearchUrl = lensUrl
-                        .replaceAll("[&?]udm=\\d+", "")       // udm=26 제거
-                        .replaceAll("[&?]lns_mode=[^&]*", "") // lns_mode 제거
-                        .replaceAll("[&?]lns_surface=[^&]*", "") // lns_surface 제거
-                        .replaceAll("[&?]source=[^&]*", "")   // source 제거
-                        + "&udm=2";                            // 이미지 검색 모드
-                // tbm=isch도 추가 (호환성)
-                if (!imageSearchUrl.contains("tbm=")) {
-                    imageSearchUrl += "&tbm=isch";
-                }
+                        .replaceAll("source=[^&]*", "source=lns.web.gsbubb");
 
                 log.info("[LensUpload] 2단계: 이미지 탭 요청 — {}", imageSearchUrl);
 
@@ -125,11 +122,15 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
                         imageStatus, imageFinalUrl, imageHtml.length());
 
                 if (imageStatus == 200) {
+                    // InlineDataExtractor로 먼저 시도
+                    results = dataExtractor.extract(imageHtml, maxResults);
+                    log.info("[LensUpload] 2단계 InlineData 파싱 — {} 결과", results.size());
+                    if (!results.isEmpty()) return results;
+
+                    // HTML 직접 파싱
                     results = parseImageResults(imageHtml, maxResults);
-                    log.info("[LensUpload] 2단계 파싱 — {} 결과", results.size());
-                    if (!results.isEmpty()) {
-                        return results;
-                    }
+                    log.info("[LensUpload] 2단계 HTML 파싱 — {} 결과", results.size());
+                    if (!results.isEmpty()) return results;
                 }
             }
 
