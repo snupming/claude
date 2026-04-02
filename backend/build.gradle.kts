@@ -51,6 +51,12 @@ dependencies {
     // WebP/TIFF 등 추가 이미지 포맷 지원 (ImageIO 플러그인)
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
 
+    // PDF 생성 (HTML → PDF, 한글 폰트 지원)
+    implementation("com.openhtmltopdf:openhtmltopdf-pdfbox:1.1.24")
+
+    // DOCX 생성
+    implementation("org.apache.poi:poi-ooxml:5.4.0")
+
     // Dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 

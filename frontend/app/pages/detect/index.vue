@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Search, Globe, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, ExternalLink } from 'lucide-vue-next'
+import { Search, Globe, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, ExternalLink, FileDown, FileText } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -106,6 +107,64 @@ function domainFromUrl(url: string | null) {
   }
 }
 
+// 증거자료 / 내용증명
+const showLetterForm = ref(false)
+const letterScanId = ref<number>(0)
+const letterForm = ref({
+  senderName: '',
+  senderAddress: '',
+  senderPhone: '',
+  recipientName: '',
+  recipientAddress: '',
+  workTitle: '',
+  creationDate: '',
+  firstPublicationInfo: '',
+  copyrightRegNumber: '',
+  damageAmount: '',
+  bankName: '',
+  accountNumber: '',
+  accountHolder: '',
+  complianceDays: 14,
+})
+
+async function downloadReport(scanId: number, format: 'pdf' | 'docx') {
+  try {
+    const blob = await $fetch<Blob>(`/api/evidence/${scanId}/report`, {
+      params: { format },
+      responseType: 'blob',
+    })
+    downloadBlob(blob, `evidence_report_${scanId}.${format}`)
+    toast.success('증거자료 다운로드 완료')
+  } catch {
+    toast.error('증거자료 생성에 실패했습니다')
+  }
+}
+
+async function downloadLetter(format: 'pdf' | 'docx') {
+  try {
+    const blob = await $fetch<Blob>(`/api/evidence/${letterScanId.value}/letter`, {
+      method: 'POST',
+      body: letterForm.value,
+      params: { format },
+      responseType: 'blob',
+    })
+    downloadBlob(blob, `certified_letter_${letterScanId.value}.${format}`)
+    toast.success('내용증명 다운로드 완료')
+    showLetterForm.value = false
+  } catch {
+    toast.error('내용증명 생성에 실패했습니다')
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 onMounted(loadData)
 onUnmounted(stopPolling)
 </script>
@@ -161,10 +220,23 @@ onUnmounted(stopPolling)
             <Button variant="outline" size="sm" @click="viewDetail(activeScan!)">
               상세 보기
             </Button>
+            <Button v-if="activeScan.matchesFound > 0" size="sm" @click="downloadReport(activeScan!.id, 'pdf')">
+              증거 PDF
+            </Button>
+            <Button v-if="activeScan.matchesFound > 0" variant="outline" size="sm" @click="showLetterForm = true; letterScanId = activeScan!.id">
+              내용증명
+            </Button>
             <Button variant="ghost" size="sm" @click="clearActiveScan">
               닫기
             </Button>
           </div>
+        </div>
+        <!-- 도용 건 있을 때 로톡 안내 -->
+        <div v-if="activeScan.matchesFound > 0" class="mt-4 flex items-center justify-between rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30">
+          <p class="text-sm text-muted-foreground">전문 변호사의 도움이 필요하신가요?</p>
+          <a href="https://www.lawtalk.co.kr/lawyers?keyword=지식재산권&category=지식재산권%2F엔터" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-primary hover:underline">
+            로톡에서 변호사 찾기 →
+          </a>
         </div>
       </CardContent>
     </Card>
@@ -363,6 +435,61 @@ onUnmounted(stopPolling)
               </div>
             </div>
           </template>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- 내용증명 작성 폼 다이얼로그 -->
+    <Dialog v-model:open="showLetterForm">
+      <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>내용증명 작성</DialogTitle>
+          <DialogDescription>필수 항목을 입력하면 나머지는 탐지 데이터로 자동 작성됩니다.</DialogDescription>
+        </DialogHeader>
+
+        <div class="mt-4 space-y-4">
+          <h3 class="text-sm font-semibold">발신인 정보</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="letterForm.senderName" placeholder="성명 *" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+            <input v-model="letterForm.senderPhone" placeholder="연락처 *" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          </div>
+          <input v-model="letterForm.senderAddress" placeholder="주소 *" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+
+          <h3 class="text-sm font-semibold">수신인 정보</h3>
+          <input v-model="letterForm.recipientName" placeholder="성명/상호 *" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          <input v-model="letterForm.recipientAddress" placeholder="주소 *" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+
+          <h3 class="text-sm font-semibold">저작물 정보</h3>
+          <input v-model="letterForm.workTitle" placeholder="저작물명 *" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="letterForm.creationDate" placeholder="창작일 (YYYY.MM.DD) *" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+            <input v-model="letterForm.firstPublicationInfo" placeholder="최초 공표 정보" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          </div>
+          <input v-model="letterForm.copyrightRegNumber" placeholder="저작권 등록번호 (선택)" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+
+          <h3 class="text-sm font-semibold">손해배상</h3>
+          <input v-model="letterForm.damageAmount" placeholder="청구금액 (원) *" class="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          <div class="grid grid-cols-3 gap-3">
+            <input v-model="letterForm.bankName" placeholder="은행" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+            <input v-model="letterForm.accountNumber" placeholder="계좌번호" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+            <input v-model="letterForm.accountHolder" placeholder="예금주" class="rounded-md border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-muted-foreground">이행기한:</span>
+            <input v-model.number="letterForm.complianceDays" type="number" min="7" max="30" class="w-20 rounded-md border border-border bg-transparent px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+            <span class="text-sm text-muted-foreground">일</span>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-2">
+          <Button variant="outline" size="sm" @click="showLetterForm = false">취소</Button>
+          <Button size="sm" @click="downloadLetter('pdf')">
+            <FileDown class="mr-1 h-3 w-3" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" @click="downloadLetter('docx')">
+            <FileText class="mr-1 h-3 w-3" /> DOCX
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
