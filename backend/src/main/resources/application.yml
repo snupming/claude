@@ -54,7 +54,11 @@ ownpic:
     client-secret: ${NAVER_CLIENT_SECRET:5PamyFVcE6}
   # Google Cloud Vision API (WebDetection)
   # 활성화: SPRING_PROFILES_ACTIVE에 google 추가
-  # 인증: GOOGLE_APPLICATION_CREDENTIALS 환경변수에 서비스 계정 JSON 경로
+  # 인증 (둘 중 하나):
+  #   1. API 키: GOOGLE_VISION_API_KEY 환경변수
+  #   2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
+  google:
+    vision-api-key: ${GOOGLE_VISION_API_KEY:}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:
