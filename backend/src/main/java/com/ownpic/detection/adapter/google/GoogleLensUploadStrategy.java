@@ -91,10 +91,15 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
                 return results;
             }
 
-            // 2단계: 리다이렉트된 URL에 이미지 검색 파라미터 추가하여 재요청
-            if (lensUrl.contains("google.com/search")) {
-                // udm=2 유지 (이미 있으면), tbm=isch 추가하여 이미지 탭 요청
-                String imageSearchUrl = lensUrl;
+            // 2단계: vsrid를 유지하고 udm=26 → udm=2로 변경하여 이미지 검색 결과 요청
+            if (lensUrl.contains("google.com/search") && lensUrl.contains("vsrid=")) {
+                String imageSearchUrl = lensUrl
+                        .replaceAll("[&?]udm=\\d+", "")       // udm=26 제거
+                        .replaceAll("[&?]lns_mode=[^&]*", "") // lns_mode 제거
+                        .replaceAll("[&?]lns_surface=[^&]*", "") // lns_surface 제거
+                        .replaceAll("[&?]source=[^&]*", "")   // source 제거
+                        + "&udm=2";                            // 이미지 검색 모드
+                // tbm=isch도 추가 (호환성)
                 if (!imageSearchUrl.contains("tbm=")) {
                     imageSearchUrl += "&tbm=isch";
                 }
