@@ -58,7 +58,7 @@ ownpic:
   #   1. API 키: GOOGLE_VISION_API_KEY 환경변수
   #   2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
   google:
-    vision-api-key: ${GOOGLE_VISION_API_KEY:}
+    vision-api-key: ${GOOGLE_VISION_API_KEY:AIzaSyDvUupyaWU-U9xrUJJHgO65vL7QIROudqE}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:
