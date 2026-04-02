@@ -41,10 +41,7 @@ public class GoogleSearchByImageStrategy implements GoogleReverseImageSearchStra
         this.uaRotator = uaRotator;
         this.captchaDetector = captchaDetector;
         this.props = props;
-        this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(props.requestTimeoutSeconds()))
-                .build();
+        this.httpClient = TrustingHttpClientFactory.create(props.requestTimeoutSeconds());
     }
 
     @Override

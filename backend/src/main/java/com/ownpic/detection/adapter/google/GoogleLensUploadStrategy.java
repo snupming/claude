@@ -34,10 +34,7 @@ public class GoogleLensUploadStrategy implements GoogleReverseImageSearchStrateg
         this.captchaDetector = captchaDetector;
         this.dataExtractor = dataExtractor;
         this.props = props;
-        this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(props.requestTimeoutSeconds()))
-                .build();
+        this.httpClient = TrustingHttpClientFactory.create(props.requestTimeoutSeconds());
     }
 
     @Override
