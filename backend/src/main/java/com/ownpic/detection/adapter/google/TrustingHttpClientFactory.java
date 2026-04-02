@@ -20,21 +20,25 @@ final class TrustingHttpClientFactory {
     private TrustingHttpClientFactory() {}
 
     static HttpClient create(int timeoutSeconds) {
+        return create(timeoutSeconds, true);
+    }
+
+    static HttpClient create(int timeoutSeconds, boolean followRedirects) {
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, new TrustManager[]{new TrustAllManager()}, new java.security.SecureRandom());
 
             SSLParameters sslParams = new SSLParameters();
-            sslParams.setEndpointIdentificationAlgorithm(null); // 호스트명 검증 비활성화
+            sslParams.setEndpointIdentificationAlgorithm(null);
 
             HttpClient client = HttpClient.newBuilder()
-                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .followRedirects(followRedirects ? HttpClient.Redirect.NORMAL : HttpClient.Redirect.NEVER)
                     .connectTimeout(Duration.ofSeconds(timeoutSeconds))
                     .sslContext(sslContext)
                     .sslParameters(sslParams)
                     .build();
 
-            log.info("TrustingHttpClient created — SSL 검증 완화 적용됨");
+            log.info("TrustingHttpClient created — SSL 완화, followRedirects={}", followRedirects);
             return client;
         } catch (Exception e) {
             log.error("TrustingHttpClient 생성 실패 — 기본 HttpClient 사용: {}", e.getMessage());
