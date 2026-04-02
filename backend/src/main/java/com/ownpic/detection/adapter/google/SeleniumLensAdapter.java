@@ -53,6 +53,9 @@ public class SeleniumLensAdapter {
                     "--lang=ko-KR",
                     "--window-size=1920,1080"
             );
+            // navigator.webdriver 감지 방지 (쿠팡 CAPTCHA 우회)
+            options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
+            options.setExperimentalOption("useAutomationExtension", false);
             // headless 모드 비활성 (구글 차단 방지)
             // 서버 환경에서 필요하면 활성화: options.addArguments("--headless=new");
 
@@ -179,7 +182,36 @@ public class SeleniumLensAdapter {
                 lastHeight = newHeight;
             }
 
-            return driver.getPageSource();
+            // navigator.webdriver 제거 (쿠팡 등 감지 방지)
+            js.executeScript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
+
+            String mainPageSource = driver.getPageSource();
+
+            // iframe 내 판매자 정보 탐색 (11번가 등)
+            List<WebElement> iframes = driver.findElements(By.tagName("iframe"));
+            StringBuilder iframeContent = new StringBuilder();
+            for (WebElement iframe : iframes) {
+                try {
+                    String iframeId = iframe.getAttribute("id");
+                    String iframeSrc = iframe.getAttribute("src");
+                    // 판매자 정보 관련 iframe만 탐색
+                    if ((iframeId != null && iframeId.toLowerCase().contains("seller"))
+                            || (iframeSrc != null && iframeSrc.toLowerCase().contains("seller"))) {
+                        driver.switchTo().frame(iframe);
+                        iframeContent.append(driver.getPageSource());
+                        driver.switchTo().defaultContent();
+                    }
+                } catch (Exception ignored) {
+                    try { driver.switchTo().defaultContent(); } catch (Exception e2) { /* ignore */ }
+                }
+            }
+
+            // iframe 내용이 있으면 메인 페이지 소스에 합침
+            if (!iframeContent.isEmpty()) {
+                mainPageSource += "\n<!-- IFRAME_SELLER_INFO -->\n" + iframeContent;
+            }
+
+            return mainPageSource;
         } catch (Exception e) {
             log.debug("[SeleniumLens] 페이지 접속 실패: {} — {}", url, e.getMessage());
             return null;
