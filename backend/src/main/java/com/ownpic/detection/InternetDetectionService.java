@@ -113,7 +113,14 @@ public class InternetDetectionService {
 
                 if (keyword != null && !keyword.isBlank()) {
                     List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
-                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견", scanId, image.getId(), keywordResults.size());
+                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견 (keyword='{}')", scanId, image.getId(), keywordResults.size(), keyword);
+                    for (int i = 0; i < Math.min(5, keywordResults.size()); i++) {
+                        var sr = keywordResults.get(i);
+                        log.info("[Scan:{}] 이미지 {} 네이버 결과[{}] — img={} page={} title={}",
+                                scanId, image.getId(), i, sr.imageUrl(),
+                                sr.sourcePageUrl() != null ? sr.sourcePageUrl() : "(없음)",
+                                sr.title() != null ? sr.title() : "(없음)");
+                    }
 
                     int naverMatches = 0;
                     for (SearchResult sr : keywordResults) {
@@ -138,8 +145,16 @@ public class InternetDetectionService {
 
                         List<ReverseSearchResult> reverseResults =
                                 reverseSearchPort.searchByImage(imageBytes, MAX_SEARCH_RESULTS);
-                        log.info("[Scan:{}] 이미지 {} 구글 리버스 검색 — {}건 발견",
-                                scanId, image.getId(), reverseResults.size());
+                        long withPageUrl = reverseResults.stream().filter(r -> r.sourcePageUrl() != null).count();
+                        log.info("[Scan:{}] 이미지 {} 구글 리버스 검색 — {}건 발견 (pageUrl 있는 결과: {}건)",
+                                scanId, image.getId(), reverseResults.size(), withPageUrl);
+                        for (int i = 0; i < Math.min(5, reverseResults.size()); i++) {
+                            var rr = reverseResults.get(i);
+                            log.info("[Scan:{}] 이미지 {} 구글 결과[{}] — img={} page={} title={}",
+                                    scanId, image.getId(), i, rr.imageUrl(),
+                                    rr.sourcePageUrl() != null ? rr.sourcePageUrl() : "(없음)",
+                                    rr.title() != null ? rr.title() : "(없음)");
+                        }
 
                         int googleMatches = 0;
                         for (ReverseSearchResult rr : reverseResults) {
@@ -183,12 +198,20 @@ public class InternetDetectionService {
 
             // 판매자 정보 비동기 추출 (탐지 속도에 영향 없음)
             if (!allResults.isEmpty()) {
+                log.info("[Scan:{}] 판매자 정보 추출 시작 — {}건", scanId, allResults.size());
+                for (var r : allResults) {
+                    log.info("[Scan:{}] 판매자 추출 대상 — foundImg={} pageUrl={} engine={}",
+                            scanId,
+                            r.getFoundImageUrl().length() > 80 ? r.getFoundImageUrl().substring(0, 80) + "..." : r.getFoundImageUrl(),
+                            r.getSourcePageUrl() != null ? r.getSourcePageUrl() : "(없음)",
+                            r.getSearchEngine());
+                }
                 sellerInfoExtractor.extractAndSave(allResults);
             }
 
             completeScan(scanId, allResults.size());
 
-            log.info("Internet scan {} completed: {} images scanned, {} matches",
+            log.info("[Scan:{}] ===== 스캔 완료 ===== {}개 이미지 검사, {}건 도용 의심",
                     scanId, images.size(), allResults.size());
         } catch (Exception e) {
             log.error("Internet scan {} failed", scanId, e);
@@ -201,8 +224,14 @@ public class InternetDetectionService {
             float[] sourceSSCD, float[] sourceDINO, String searchEngine) {
 
         // 1. 외부 이미지 다운로드
+        log.info("[Scan:{}][{}] 다운로드 시도: {}", scanId, searchEngine, sr.imageUrl());
         byte[] foundBytes = downloadPort.download(sr.imageUrl(), DOWNLOAD_TIMEOUT_MS);
-        if (foundBytes == null) return null;
+        if (foundBytes == null) {
+            log.info("[Scan:{}][{}] 다운로드 실패: {}", scanId, searchEngine, sr.imageUrl());
+            return null;
+        }
+        log.info("[Scan:{}][{}] 다운로드 완료: {}KB — pageUrl={}, title={}",
+                scanId, searchEngine, foundBytes.length / 1024, sr.sourcePageUrl(), sr.title());
 
         // 2. 임베딩 생성 + 코사인 유사도 비교
         Double sscdSim = null;
@@ -223,7 +252,7 @@ public class InternetDetectionService {
                 }
             }
         } catch (Exception e) {
-            log.debug("Embedding failed for {}: {}", sr.imageUrl(), e.getMessage());
+            log.info("[Scan:{}][{}] 임베딩 실패: {} — {}", scanId, searchEngine, sr.imageUrl(), e.getMessage());
             return null;
         }
 
@@ -232,9 +261,20 @@ public class InternetDetectionService {
         boolean dinoAssist = sscdSim != null && sscdSim >= SSCD_MIN_FOR_DINO
                 && dinoSim != null && dinoSim >= DINO_THRESHOLD;
 
+        String sscdStr = sscdSim != null ? String.format("%.1f%%", sscdSim * 100) : "null";
+        String dinoStr = dinoSim != null ? String.format("%.1f%%", dinoSim * 100) : "null";
+
         if (!sscdMatch && !dinoAssist) {
+            log.info("[Scan:{}][{}] 임계값 미달 — SSCD={} DINO={} — {}",
+                    scanId, searchEngine, sscdStr, dinoStr, sr.imageUrl());
             return null; // 임계값 미달 → 스킵
         }
+
+        log.info("[Scan:{}][{}] ★ 도용 의심 — SSCD={} DINO={} — imgUrl={} pageUrl={} title={}",
+                scanId, searchEngine, sscdStr, dinoStr,
+                sr.imageUrl(),
+                sr.sourcePageUrl() != null ? sr.sourcePageUrl() : "(없음)",
+                sr.title() != null ? sr.title() : "(없음)");
 
         return new InternetDetectionResult(
                 scanId, sourceImageId,

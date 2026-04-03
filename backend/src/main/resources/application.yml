@@ -1,6 +1,11 @@
 spring:
   application:
     name: ownpic-backend
+
+logging:
+  level:
+    com.ownpic: DEBUG
+
   threads:
     virtual:
       enabled: true

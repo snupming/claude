@@ -15,9 +15,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * 네이버 검색 API (이미지 검색) 어댑터.
@@ -45,10 +50,7 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.objectMapper = new ObjectMapper();
-        this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        this.httpClient = createTrustingHttpClient();
     }
 
     @Override
@@ -70,8 +72,14 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+            log.info("[Naver] ===== API 응답 RAW 시작 (keyword='{}') =====", keyword);
+            log.info("[Naver] HTTP Status: {}", response.statusCode());
+            log.info("[Naver] Response Body ({}자): {}", response.body().length(),
+                    response.body().length() > 2000 ? response.body().substring(0, 2000) + "..." : response.body());
+            log.info("[Naver] ===== API 응답 RAW 끝 =====");
+
             if (response.statusCode() != 200) {
-                log.warn("Naver API returned status {}: {}", response.statusCode(), response.body());
+                log.warn("[Naver] API 에러 status={}: {}", response.statusCode(), response.body());
                 return results;
             }
 
@@ -90,12 +98,38 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
                 }
             }
 
-            log.info("Naver search '{}': {} results", keyword, results.size());
+            log.info("[Naver] keyword='{}' → {}건 결과", keyword, results.size());
+            for (int i = 0; i < Math.min(5, results.size()); i++) {
+                var sr = results.get(i);
+                log.info("[Naver]   [{}] img={} page={} title={}", i, sr.imageUrl(), sr.sourcePageUrl(), sr.title());
+            }
         } catch (Exception e) {
             log.error("Naver image search failed for keyword '{}'", keyword, e);
         }
 
         return results;
+    }
+
+    private static HttpClient createTrustingHttpClient() {
+        try {
+            TrustManager[] trustAll = { new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+            }};
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAll, new SecureRandom());
+            return HttpClient.newBuilder()
+                    .sslContext(sslContext)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+        } catch (Exception e) {
+            return HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+        }
     }
 
     private static String textOrNull(JsonNode node, String field) {
