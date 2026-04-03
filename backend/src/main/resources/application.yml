@@ -1,11 +1,6 @@
 spring:
   application:
     name: ownpic-backend
-
-logging:
-  level:
-    com.ownpic: DEBUG
-
   threads:
     virtual:
       enabled: true
@@ -69,3 +64,7 @@ ownpic:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:
     api-key: ${ANTHROPIC_API_KEY:}
+
+logging:
+  level:
+    com.ownpic: DEBUG
