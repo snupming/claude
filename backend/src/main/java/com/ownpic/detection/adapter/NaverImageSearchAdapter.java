@@ -15,9 +15,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * 네이버 검색 API (이미지 검색) 어댑터.
@@ -45,10 +50,7 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.objectMapper = new ObjectMapper();
-        this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        this.httpClient = createTrustingHttpClient();
     }
 
     @Override
@@ -106,6 +108,28 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
         }
 
         return results;
+    }
+
+    private static HttpClient createTrustingHttpClient() {
+        try {
+            TrustManager[] trustAll = { new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+            }};
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAll, new SecureRandom());
+            return HttpClient.newBuilder()
+                    .sslContext(sslContext)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+        } catch (Exception e) {
+            return HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+        }
     }
 
     private static String textOrNull(JsonNode node, String field) {
