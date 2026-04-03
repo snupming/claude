@@ -2,6 +2,8 @@ package com.ownpic.image;
 
 import com.ownpic.auth.domain.User;
 import com.ownpic.auth.domain.UserRepository;
+import com.ownpic.detection.domain.DetectionResultRepository;
+import com.ownpic.detection.domain.InternetDetectionResultRepository;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
@@ -26,15 +28,21 @@ public class ImageService {
     private final UserRepository userRepository;
     private final ImageStoragePort storagePort;
     private final ImageIngestionService ingestionService;
+    private final DetectionResultRepository detectionResultRepository;
+    private final InternetDetectionResultRepository internetDetectionResultRepository;
 
     public ImageService(ImageRepository imageRepository,
                         UserRepository userRepository,
                         ImageStoragePort storagePort,
-                        ImageIngestionService ingestionService) {
+                        ImageIngestionService ingestionService,
+                        DetectionResultRepository detectionResultRepository,
+                        InternetDetectionResultRepository internetDetectionResultRepository) {
         this.imageRepository = imageRepository;
         this.userRepository = userRepository;
         this.storagePort = storagePort;
         this.ingestionService = ingestionService;
+        this.detectionResultRepository = detectionResultRepository;
+        this.internetDetectionResultRepository = internetDetectionResultRepository;
     }
 
     public ImageResponse upload(UUID userId, MultipartFile file, String keywords) {
@@ -81,6 +89,10 @@ public class ImageService {
         var image = imageRepository.findById(imageId)
                 .filter(img -> img.getUser().getId().equals(userId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이미지를 찾을 수 없습니다."));
+
+        // 관련 탐지 결과 먼저 삭제 (FK 제약 조건)
+        detectionResultRepository.deleteBySourceImageId(imageId);
+        internetDetectionResultRepository.deleteBySourceImageId(imageId);
 
         if (image.getGcsPath() != null) {
             storagePort.deleteQuietly(image.getGcsPath());

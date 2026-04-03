@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface InternetDetectionResultRepository extends JpaRepository<InternetDetectionResult, Long> {
     List<InternetDetectionResult> findByScanIdOrderByCreatedAt(Long scanId);
+    void deleteBySourceImageId(Long sourceImageId);
 }
