@@ -44,7 +44,6 @@ public class InternetDetectionService {
     private final ImageStoragePort storagePort;
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
-    private final ImageCaptionPort captionPort;
     private final SellerInfoExtractor sellerInfoExtractor;
 
     public InternetDetectionService(DetectionScanRepository scanRepository,
@@ -56,7 +55,6 @@ public class InternetDetectionService {
                                     ImageStoragePort storagePort,
                                     SscdEmbeddingPort sscdPort,
                                     DinoEmbeddingPort dinoPort,
-                                    ImageCaptionPort captionPort,
                                     SellerInfoExtractor sellerInfoExtractor) {
         this.scanRepository = scanRepository;
         this.resultRepository = resultRepository;
@@ -67,7 +65,6 @@ public class InternetDetectionService {
         this.storagePort = storagePort;
         this.sscdPort = sscdPort;
         this.dinoPort = dinoPort;
-        this.captionPort = captionPort;
         this.sellerInfoExtractor = sellerInfoExtractor;
     }
 
@@ -108,12 +105,11 @@ public class InternetDetectionService {
                 List<InternetDetectionResult> imageResults = new ArrayList<>();
 
                 // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
-                String keyword = buildSearchKeyword(image);
-                log.info("[Scan:{}] 이미지 {} 키워드 — '{}'", scanId, image.getId(), keyword);
+                log.info("[Scan:{}] 이미지 {} 키워드 — '{}'", scanId, image.getId(), image.getKeywords());
 
-                if (keyword != null && !keyword.isBlank()) {
-                    List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
-                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견 (keyword='{}')", scanId, image.getId(), keywordResults.size(), keyword);
+                if (image.getKeywords() != null && !image.getKeywords().isBlank()) {
+                    List<SearchResult> keywordResults = searchPort.searchByKeyword(image.getKeywords(), MAX_SEARCH_RESULTS);
+                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견 (keyword='{}')", scanId, image.getId(), keywordResults.size(), image.getKeywords());
                     for (int i = 0; i < Math.min(5, keywordResults.size()); i++) {
                         var sr = keywordResults.get(i);
                         log.info("[Scan:{}] 이미지 {} 네이버 결과[{}] — img={} page={} title={}",
@@ -280,38 +276,6 @@ public class InternetDetectionService {
                 scanId, sourceImageId,
                 sr.imageUrl(), sr.sourcePageUrl(), sr.title(),
                 sscdSim, dinoSim, "INFRINGEMENT", searchEngine);
-    }
-
-    /**
-     * 이미지의 검색 키워드를 결정한다.
-     * 우선순위: 사용자 입력 키워드 → AI 이미지 캡션 → null (리버스 이미지 검색으로 fallback)
-     */
-    private String buildSearchKeyword(Image image) {
-        // 1. 사용자가 직접 입력한 키워드
-        if (image.getKeywords() != null && !image.getKeywords().isBlank()) {
-            return image.getKeywords();
-        }
-
-        // 2. AI Vision으로 이미지 내용 추론하여 키워드 생성
-        if (image.getGcsPath() != null) {
-            try {
-                byte[] imageBytes = storagePort.load(image.getGcsPath());
-                if (imageBytes != null && imageBytes.length > 0) {
-                    String caption = captionPort.generateKeywords(imageBytes);
-                    if (caption != null && !caption.isBlank()) {
-                        log.info("AI-generated keywords for image {}: {}", image.getId(), caption);
-                        image.setKeywords(caption);
-                        imageRepository.save(image);
-                        return caption;
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Failed to generate AI keywords for image {}: {}", image.getId(), e.getMessage());
-            }
-        }
-
-        // 키워드 없으면 null → 키워드 검색 스킵, 리버스 이미지 검색으로 진행
-        return null;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

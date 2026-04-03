@@ -41,7 +41,7 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
         if (apiKey != null && !apiKey.isBlank()) {
             ImageAnnotatorSettings settings = ImageAnnotatorSettings.newBuilder()
                     .setCredentialsProvider(NoCredentialsProvider.create())
-                    .setHeaderProvider((HeaderProvider) () -> Map.of("x-goog-api-key", apiKey))
+                    .setHeaderProvider(() -> Map.of("x-goog-api-key", apiKey))
                     .build();
             return ImageAnnotatorClient.create(settings);
         }
@@ -137,7 +137,8 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
             // webEntities 추출 (최상위 엔터티)
             String topEntity = null;
             for (WebDetection.WebEntity entity : web.getWebEntitiesList()) {
-                if (entity.getDescription() != null && !entity.getDescription().isBlank()) {
+                entity.getDescription();
+                if (!entity.getDescription().isBlank()) {
                     topEntity = entity.getDescription();
                     log.info("[CloudVision] 최상위 엔터티: {} (score={})", topEntity, entity.getScore());
                     break;

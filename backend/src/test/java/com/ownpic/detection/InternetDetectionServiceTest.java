@@ -47,7 +47,7 @@ class InternetDetectionServiceTest {
         service = new InternetDetectionService(
                 scanRepository, resultRepository, imageRepository,
                 searchPort, reverseSearchPort, downloadPort, storagePort,
-                sscdPort, dinoPort);
+                sscdPort, dinoPort,  null);
         userId = UUID.randomUUID();
     }
 

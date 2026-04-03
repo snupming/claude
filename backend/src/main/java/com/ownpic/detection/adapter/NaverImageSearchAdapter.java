@@ -27,8 +27,7 @@ import javax.net.ssl.X509TrustManager;
 /**
  * 네이버 검색 API (이미지 검색) 어댑터.
  * 키워드 기반으로 네이버 이미지 검색 결과를 반환한다.
- *
- * 네이버 오픈 API: https://developers.naver.com/docs/serviceapi/search/image/image.md
+ * 네이버 오픈 API: <a href="https://developers.naver.com/docs/serviceapi/search/shopping/shopping.md"/>
  * - 무료: 일 25,000회
  * - 인증: Client-ID + Client-Secret 헤더
  */
@@ -37,7 +36,7 @@ import javax.net.ssl.X509TrustManager;
 public class NaverImageSearchAdapter implements InternetImageSearchPort {
 
     private static final Logger log = LoggerFactory.getLogger(NaverImageSearchAdapter.class);
-    private static final String NAVER_API_URL = "https://openapi.naver.com/v1/search/image";
+    private static final String NAVER_API_URL = "https://openapi.naver.com/v1/search/shop.json";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;

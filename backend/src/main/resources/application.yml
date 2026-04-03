@@ -2,17 +2,13 @@ spring:
   application:
     name: ownpic-backend
 
-logging:
-  level:
-    com.ownpic: DEBUG
-
   threads:
     virtual:
       enabled: true
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com/postgres}
-    username: ${DB_USERNAME:postgres.oyauhpbtobbwoilbvcxh}
+    username: ${DB_USERNAME:postgres.idnchlxoyqedtwvixtya}
     password: ${DB_PASSWORD:dnjzmaos88*C}
     driver-class-name: org.postgresql.Driver
 
@@ -36,6 +32,10 @@ logging:
   mvc:
     problemdetails:
       enabled: true
+
+logging:
+  level:
+    com.ownpic: DEBUG
 
 server:
   port: ${SERVER_PORT:8080}
@@ -64,7 +64,7 @@ ownpic:
   #   2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
   google:
     vision-api-key: ${GOOGLE_VISION_API_KEY:AIzaSyDvUupyaWU-U9xrUJJHgO65vL7QIROudqE}
-    selenium-enabled: ${GOOGLE_SELENIUM_ENABLED:false}
+    selenium-enabled: ${GOOGLE_SELENIUM_ENABLED:true}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   anthropic:
