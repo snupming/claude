@@ -77,6 +77,56 @@ public class CloudVisionWebDetectionAdapter implements ReverseImageSearchPort {
 
             WebDetection web = response.getWebDetection();
 
+            // ===== API 응답 전체 로그 =====
+            log.info("[CloudVision] ===== API 응답 RAW 시작 =====");
+
+            // bestGuessLabels 전체
+            log.info("[CloudVision] bestGuessLabels: {}건", web.getBestGuessLabelsCount());
+            for (var label : web.getBestGuessLabelsList()) {
+                log.info("[CloudVision]   label='{}' lang='{}'", label.getLabel(), label.getLanguageCode());
+            }
+
+            // webEntities 전체
+            log.info("[CloudVision] webEntities: {}건", web.getWebEntitiesCount());
+            for (var entity : web.getWebEntitiesList()) {
+                log.info("[CloudVision]   entity='{}' score={} id='{}'",
+                        entity.getDescription(), entity.getScore(), entity.getEntityId());
+            }
+
+            // pagesWithMatchingImages 전체
+            log.info("[CloudVision] pagesWithMatchingImages: {}건", web.getPagesWithMatchingImagesCount());
+            for (var page : web.getPagesWithMatchingImagesList()) {
+                log.info("[CloudVision]   page url='{}' title='{}' fullMatch={}건 partialMatch={}건",
+                        page.getUrl(), page.getPageTitle(),
+                        page.getFullMatchingImagesCount(), page.getPartialMatchingImagesCount());
+                for (var img : page.getFullMatchingImagesList()) {
+                    log.info("[CloudVision]     fullMatch: {}", img.getUrl());
+                }
+                for (var img : page.getPartialMatchingImagesList()) {
+                    log.info("[CloudVision]     partialMatch: {}", img.getUrl());
+                }
+            }
+
+            // fullMatchingImages 전체
+            log.info("[CloudVision] fullMatchingImages: {}건", web.getFullMatchingImagesCount());
+            for (var img : web.getFullMatchingImagesList()) {
+                log.info("[CloudVision]   fullMatch: {}", img.getUrl());
+            }
+
+            // partialMatchingImages 전체
+            log.info("[CloudVision] partialMatchingImages: {}건", web.getPartialMatchingImagesCount());
+            for (var img : web.getPartialMatchingImagesList()) {
+                log.info("[CloudVision]   partialMatch: {}", img.getUrl());
+            }
+
+            // visuallySimilarImages 전체
+            log.info("[CloudVision] visuallySimilarImages: {}건", web.getVisuallySimilarImagesCount());
+            for (var img : web.getVisuallySimilarImagesList()) {
+                log.info("[CloudVision]   similar: {}", img.getUrl());
+            }
+
+            log.info("[CloudVision] ===== API 응답 RAW 끝 =====");
+
             // bestGuessLabels 추출 (이미지 주제 추측)
             String bestGuessLabel = null;
             if (!web.getBestGuessLabelsList().isEmpty()) {

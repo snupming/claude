@@ -70,8 +70,14 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+            log.info("[Naver] ===== API 응답 RAW 시작 (keyword='{}') =====", keyword);
+            log.info("[Naver] HTTP Status: {}", response.statusCode());
+            log.info("[Naver] Response Body ({}자): {}", response.body().length(),
+                    response.body().length() > 2000 ? response.body().substring(0, 2000) + "..." : response.body());
+            log.info("[Naver] ===== API 응답 RAW 끝 =====");
+
             if (response.statusCode() != 200) {
-                log.warn("Naver API returned status {}: {}", response.statusCode(), response.body());
+                log.warn("[Naver] API 에러 status={}: {}", response.statusCode(), response.body());
                 return results;
             }
 
@@ -90,7 +96,11 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
                 }
             }
 
-            log.info("Naver search '{}': {} results", keyword, results.size());
+            log.info("[Naver] keyword='{}' → {}건 결과", keyword, results.size());
+            for (int i = 0; i < Math.min(5, results.size()); i++) {
+                var sr = results.get(i);
+                log.info("[Naver]   [{}] img={} page={} title={}", i, sr.imageUrl(), sr.sourcePageUrl(), sr.title());
+            }
         } catch (Exception e) {
             log.error("Naver image search failed for keyword '{}'", keyword, e);
         }
