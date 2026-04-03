@@ -224,13 +224,13 @@ public class InternetDetectionService {
             float[] sourceSSCD, float[] sourceDINO, String searchEngine) {
 
         // 1. 외부 이미지 다운로드
-        log.debug("[Scan:{}][{}] 다운로드 시도: {}", scanId, searchEngine, sr.imageUrl());
+        log.info("[Scan:{}][{}] 다운로드 시도: {}", scanId, searchEngine, sr.imageUrl());
         byte[] foundBytes = downloadPort.download(sr.imageUrl(), DOWNLOAD_TIMEOUT_MS);
         if (foundBytes == null) {
-            log.debug("[Scan:{}][{}] 다운로드 실패: {}", scanId, searchEngine, sr.imageUrl());
+            log.info("[Scan:{}][{}] 다운로드 실패: {}", scanId, searchEngine, sr.imageUrl());
             return null;
         }
-        log.debug("[Scan:{}][{}] 다운로드 완료: {}KB — pageUrl={}, title={}",
+        log.info("[Scan:{}][{}] 다운로드 완료: {}KB — pageUrl={}, title={}",
                 scanId, searchEngine, foundBytes.length / 1024, sr.sourcePageUrl(), sr.title());
 
         // 2. 임베딩 생성 + 코사인 유사도 비교
@@ -252,7 +252,7 @@ public class InternetDetectionService {
                 }
             }
         } catch (Exception e) {
-            log.debug("[Scan:{}][{}] 임베딩 실패: {} — {}", scanId, searchEngine, sr.imageUrl(), e.getMessage());
+            log.info("[Scan:{}][{}] 임베딩 실패: {} — {}", scanId, searchEngine, sr.imageUrl(), e.getMessage());
             return null;
         }
 
@@ -265,7 +265,7 @@ public class InternetDetectionService {
         String dinoStr = dinoSim != null ? String.format("%.1f%%", dinoSim * 100) : "null";
 
         if (!sscdMatch && !dinoAssist) {
-            log.debug("[Scan:{}][{}] 임계값 미달 — SSCD={} DINO={} — {}",
+            log.info("[Scan:{}][{}] 임계값 미달 — SSCD={} DINO={} — {}",
                     scanId, searchEngine, sscdStr, dinoStr, sr.imageUrl());
             return null; // 임계값 미달 → 스킵
         }

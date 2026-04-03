@@ -151,7 +151,7 @@ public class SellerInfoExtractor {
                 log.warn("[SellerExtractor] Selenium 페이지 로드 실패: {}", url);
             }
         } else {
-            log.debug("[SellerExtractor] Selenium 비활성 — JSoup fallback: {}", url);
+            log.info("[SellerExtractor] Selenium 비활성 — JSoup fallback: {}", url);
         }
 
         // 2차: Selenium 실패 시 JSoup fallback
@@ -162,14 +162,14 @@ public class SellerInfoExtractor {
             try {
                 doc = fetchPageJsoup(url);
             } catch (Exception e) {
-                log.debug("[SellerExtractor] 페이지 접속 실패: {}", e.getMessage());
+                log.info("[SellerExtractor] 페이지 접속 실패: {}", e.getMessage());
                 return SellerInfo.empty(platform.type(), platform.category());
             }
         }
 
         // 에러 페이지 감지
         if (isErrorPage(doc)) {
-            log.debug("[SellerExtractor] 에러 페이지 감지 — 스킵: {}", url);
+            log.info("[SellerExtractor] 에러 페이지 감지 — 스킵: {}", url);
             return SellerInfo.empty(platform.type(), platform.category());
         }
 
@@ -203,14 +203,14 @@ public class SellerInfoExtractor {
 
         if (hint.isMarketplace()) {
             // ★ 오픈마켓: 상품 페이지 내 판매자 정보 섹션 크롤링 (footer 무시)
-            log.debug("[SellerExtractor] 통신판매중개자 — 상품 페이지 내 판매자 정보 섹션 탐색: {}", platform.type());
+            log.info("[SellerExtractor] 통신판매중개자 — 상품 페이지 내 판매자 정보 섹션 탐색: {}", platform.type());
 
             // 1차: 플랫폼별 CSS 셀렉터로 판매자 섹션 특정
             if (hint.sellerSectionSelector() != null) {
                 Elements sellerSection = doc.select(hint.sellerSectionSelector());
                 if (!sellerSection.isEmpty()) {
                     targetText = sellerSection.text();
-                    log.debug("[SellerExtractor] 판매자 섹션 발견: {}자", targetText.length());
+                    log.info("[SellerExtractor] 판매자 섹션 발견: {}자", targetText.length());
                 }
             }
 
@@ -413,7 +413,7 @@ public class SellerInfoExtractor {
 
             // CDN 도메인이면 크롤링 스킵
             if (isSkipDomain(host)) {
-                log.debug("[SellerExtractor] CDN 도메인 스킵: {}", host);
+                log.info("[SellerExtractor] CDN 도메인 스킵: {}", host);
                 return null;
             }
 
@@ -472,7 +472,7 @@ public class SellerInfoExtractor {
             if (emailMatcher.find()) extracted.append("이메일: ").append(emailMatcher.group()).append(" ");
 
             if (!extracted.isEmpty()) {
-                log.debug("[SellerExtractor] JSON 데이터에서 사업자 정보 발견: {}", extracted);
+                log.info("[SellerExtractor] JSON 데이터에서 사업자 정보 발견: {}", extracted);
                 return extracted.toString();
             }
         }
