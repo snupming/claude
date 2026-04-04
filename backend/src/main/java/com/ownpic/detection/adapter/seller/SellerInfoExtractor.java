@@ -34,6 +34,17 @@ public class SellerInfoExtractor {
 
     private final InternetDetectionResultRepository resultRepository;
     private final SeleniumLensAdapter seleniumAdapter;
+    private final NaverSmartStoreExtractor smartStoreExtractor;
+    private final CaptchaSolver captchaSolver;
+
+    // 통신판매중개자 본사 사업자번호 — 이 번호가 추출되면 중개자 정보이므로 무시
+    private static final Set<String> INTERMEDIARY_BIZ_NUMBERS = Set.of(
+            "220-81-62517",   // 네이버(주)
+            "120-88-00767",   // 쿠팡(주)
+            "107-86-01737",   // (주)이베이코리아 (G마켓/옥션)
+            "107-87-83297",   // (주)십일번가
+            "104-81-53914"    // (주)에쓰에스지닷컴 (SSG)
+    );
 
     // 정규식 패턴 — 한국 사업자 정보 공통
     private static final Pattern BIZ_NUMBER = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
@@ -77,9 +88,13 @@ public class SellerInfoExtractor {
     );
 
     public SellerInfoExtractor(InternetDetectionResultRepository resultRepository,
-                               SeleniumLensAdapter seleniumAdapter) {
+                               SeleniumLensAdapter seleniumAdapter,
+                               NaverSmartStoreExtractor smartStoreExtractor,
+                               CaptchaSolver captchaSolver) {
         this.resultRepository = resultRepository;
         this.seleniumAdapter = seleniumAdapter;
+        this.smartStoreExtractor = smartStoreExtractor;
+        this.captchaSolver = captchaSolver;
     }
 
     @Async
@@ -104,9 +119,15 @@ public class SellerInfoExtractor {
                     if (domain != null) domainCache.put(domain, info);
                 }
 
-                applyToResult(result, info);
+                // 중개자 본사 정보 필터
+                if (info.businessRegNumber() != null && INTERMEDIARY_BIZ_NUMBERS.contains(info.businessRegNumber())) {
+                    log.info("[SellerExtractor] 중개자 본사 정보 감지 — 무시: {} ({})",
+                            info.businessRegNumber(), info.sellerName());
+                    info = new SellerInfo(info.platformType(), info.platformCategory(),
+                            null, null, null, null, null, null, info.storeUrl());
+                }
 
-                // bestGuessLabel, detectedEntity 저장 (Vision API에서 전달받은 것)
+                applyToResult(result, info);
                 resultRepository.save(result);
                 log.info("[SellerExtractor] {} → 상호:{} / 사업자:{} / 대표:{} ({})",
                         targetUrl, info.sellerName(), info.businessRegNumber(),
@@ -140,7 +161,36 @@ public class SellerInfoExtractor {
             return extractOverseas(url, platform);
         }
 
-        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡, 네이버 스마트스토어 등)
+        // ★ 스마트스토어 전용 추출기 우선 사용
+        if ("NAVER_SMARTSTORE".equals(platform.type()) || "NAVER_BRAND".equals(platform.type())) {
+            SellerInfo smartStoreInfo = smartStoreExtractor.extract(url);
+            if (smartStoreInfo != null && smartStoreInfo.sellerName() != null) {
+                log.info("[SellerExtractor] 스마트스토어 전용 추출 성공: {} / {}",
+                        smartStoreInfo.sellerName(), smartStoreInfo.representativeName());
+
+                // CAPTCHA 풀기로 사업자번호 추가 확보 시도
+                if (smartStoreInfo.businessRegNumber() == null && seleniumAdapter.isEnabled()) {
+                    log.info("[SellerExtractor] CAPTCHA 풀기 시도: {}", url);
+                    String captchaPage = seleniumAdapter.solveCaptchaAndGetSellerInfo(url, captchaSolver);
+                    if (captchaPage != null) {
+                        Document captchaDoc = Jsoup.parse(captchaPage);
+                        SellerInfo captchaInfo = parseBusinessInfo(captchaDoc, url, platform, hint);
+                        if (captchaInfo.businessRegNumber() != null
+                                && !INTERMEDIARY_BIZ_NUMBERS.contains(captchaInfo.businessRegNumber())) {
+                            // CAPTCHA 풀어서 얻은 사업자번호를 합침
+                            return new SellerInfo(smartStoreInfo.platformType(), smartStoreInfo.platformCategory(),
+                                    smartStoreInfo.sellerName(), captchaInfo.businessRegNumber(),
+                                    smartStoreInfo.representativeName(),
+                                    captchaInfo.businessAddress(), captchaInfo.contactPhone(),
+                                    captchaInfo.contactEmail(), smartStoreInfo.storeUrl());
+                        }
+                    }
+                }
+                return smartStoreInfo;
+            }
+        }
+
+        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡 등)
         String pageSource = null;
         if (seleniumAdapter.isEnabled()) {
             log.info("[SellerExtractor] Selenium으로 접속: {} ({})", url, platform.type());

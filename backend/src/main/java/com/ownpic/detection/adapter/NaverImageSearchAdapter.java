@@ -90,6 +90,14 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
                     String imageUrl = textOrNull(item, "image");       // 실제 이미지 URL
                     String sourcePageUrl = textOrNull(item, "link");   // 상품 페이지 URL
                     String title = stripHtml(textOrNull(item, "title"));
+                    String mallName = textOrNull(item, "mallName");   // 판매자/스토어명
+
+                    // title에 mallName 포함 (판매자 식별용)
+                    if (mallName != null && title != null && !title.contains(mallName)) {
+                        title = title + " [" + mallName + "]";
+                    } else if (mallName != null && title == null) {
+                        title = mallName;
+                    }
 
                     if (imageUrl != null) {
                         results.add(new SearchResult(imageUrl, sourcePageUrl, title));

@@ -3,6 +3,7 @@ package com.ownpic.detection.adapter.google;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.openqa.selenium.*;
+import org.openqa.selenium.OutputType;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -214,6 +215,110 @@ public class SeleniumLensAdapter {
             return mainPageSource;
         } catch (Exception e) {
             log.debug("[SeleniumLens] 페이지 접속 실패: {} — {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * CAPTCHA 팝업을 풀고 판매자 상세정보 페이지 소스를 반환.
+     *
+     * 1. 해당 페이지 접속 → 스크롤
+     * 2. "판매자 상세정보 확인" 버튼 클릭
+     * 3. CAPTCHA 팝업 감지 → 이미지 캡처
+     * 4. CaptchaSolver로 답 계산
+     * 5. 답 입력 → 확인 → 판매자 정보 페이지 소스 반환
+     *
+     * @param pageUrl 판매자 정보가 있는 페이지 URL
+     * @param captchaSolver CAPTCHA 풀기 컴포넌트
+     * @return 판매자 상세정보가 포함된 HTML (실패 시 null)
+     */
+    public String solveCaptchaAndGetSellerInfo(String pageUrl,
+                                                com.ownpic.detection.adapter.seller.CaptchaSolver captchaSolver) {
+        if (!enabled || driver == null) return null;
+
+        try {
+            randomDelay(1000, 3000);
+            driver.get(pageUrl);
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+
+            // 페이지 끝까지 스크롤
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            js.executeScript("window.scrollTo(0, document.body.scrollHeight)");
+            randomDelay(2000, 3000);
+
+            // "판매자 상세정보 확인" 버튼 찾기
+            WebElement detailButton = null;
+            for (String selector : List.of(
+                    "a[contains(text(),'상세정보')]", // XPath
+                    "button[contains(text(),'상세정보')]")) {
+                try {
+                    detailButton = driver.findElement(By.xpath("//*[contains(text(),'상세정보 확인')]"));
+                    break;
+                } catch (Exception ignored) {}
+            }
+
+            if (detailButton == null) {
+                // CSS 셀렉터로 재시도
+                try {
+                    detailButton = driver.findElement(By.cssSelector(
+                            "[class*=detail], [class*=seller_detail], a[href*=seller]"));
+                } catch (Exception ignored) {}
+            }
+
+            if (detailButton == null) {
+                log.info("[SeleniumLens] '판매자 상세정보 확인' 버튼을 찾을 수 없음: {}", pageUrl);
+                return driver.getPageSource();
+            }
+
+            detailButton.click();
+            randomDelay(1500, 3000);
+
+            // CAPTCHA 팝업 감지
+            WebElement captchaImage = null;
+            try {
+                // CAPTCHA 이미지 찾기 (팝업 내 img 태그)
+                captchaImage = wait.until(ExpectedConditions.presenceOfElementLocated(
+                        By.cssSelector("[class*=captcha] img, [class*=modal] img, [class*=popup] img, [class*=dialog] img")));
+            } catch (Exception e) {
+                log.info("[SeleniumLens] CAPTCHA 팝업 없음 — 이미 판매자 정보가 표시됨");
+                return driver.getPageSource();
+            }
+
+            // CAPTCHA 이미지 스크린샷
+            byte[] captchaBytes = captchaImage.getScreenshotAs(OutputType.BYTES);
+            log.info("[SeleniumLens] CAPTCHA 이미지 캡처 완료: {}KB", captchaBytes.length / 1024);
+
+            // Vision API OCR로 답 계산
+            int answer = captchaSolver.solveReceiptCaptcha(captchaBytes);
+            if (answer <= 0) {
+                log.warn("[SeleniumLens] CAPTCHA 풀기 실패 — 답: {}", answer);
+                return null;
+            }
+
+            log.info("[SeleniumLens] CAPTCHA 답: {}", answer);
+
+            // 답 입력
+            WebElement inputField = driver.findElement(By.cssSelector(
+                    "input[type=text], input[type=number], input[placeholder*='정답'], input[placeholder*='입력']"));
+            inputField.clear();
+            inputField.sendKeys(String.valueOf(answer));
+
+            // "확인" 버튼 클릭
+            randomDelay(500, 1000);
+            WebElement confirmButton = driver.findElement(By.xpath(
+                    "//button[contains(text(),'확인')] | //button[contains(@class,'confirm')]"));
+            confirmButton.click();
+
+            randomDelay(2000, 4000);
+
+            // 결과 페이지 소스 반환
+            String result = driver.getPageSource();
+            log.info("[SeleniumLens] CAPTCHA 풀기 성공 — 판매자 정보 페이지 로드 완료");
+            return result;
+
+        } catch (Exception e) {
+            log.warn("[SeleniumLens] CAPTCHA 풀기 과정 실패: {} — {}", pageUrl, e.getMessage());
             return null;
         }
     }
