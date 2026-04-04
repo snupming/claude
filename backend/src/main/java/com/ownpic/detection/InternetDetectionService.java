@@ -17,10 +17,8 @@ import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.slf4j.Logger;
@@ -70,12 +68,6 @@ public class InternetDetectionService {
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
 
-    @Value("${ownpic.naver.login-id:}")
-    private String naverLoginId;
-
-    @Value("${ownpic.naver.login-pw:}")
-    private String naverLoginPw;
-
     @Value("${ownpic.google.selenium-enabled:true}")
     private boolean seleniumEnabled;
 
@@ -113,7 +105,7 @@ public class InternetDetectionService {
                     "--disable-blink-features=AutomationControlled",
                     "--lang=ko-KR",
                     "--window-size=1920,1080",
-                    "--headless=new"
+                    "--user-data-dir=./chrome-profile"
             );
             options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
             options.setExperimentalOption("useAutomationExtension", false);
@@ -125,9 +117,19 @@ public class InternetDetectionService {
             ((JavascriptExecutor) driver).executeScript(
                     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
 
-            log.info("[Selenium] Chrome 브라우저 초기화 완료");
+            // 네이버 로그인 상태 확인
+            driver.get("https://nid.naver.com/nidlogin.login");
+            Thread.sleep(2000);
+            String currentUrl = driver.getCurrentUrl();
+            if (currentUrl.contains("nidlogin")) {
+                log.warn("[Selenium] 네이버 미로그인 상태 — chrome-profile에서 수동 로그인 필요");
+                log.warn("[Selenium] headless 제거 후 수동 로그인하면 세션이 chrome-profile에 저장됩니다");
+            } else {
+                loggedIn = true;
+                log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
+            }
 
-            loginToNaver();
+            log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir=./chrome-profile)");
         } catch (Exception e) {
             log.warn("[Selenium] 초기화 실패: {}", e.getMessage());
             seleniumEnabled = false;
@@ -138,43 +140,6 @@ public class InternetDetectionService {
     public void cleanupSelenium() {
         if (driver != null) {
             try { driver.quit(); } catch (Exception ignored) {}
-        }
-    }
-
-    private void loginToNaver() {
-        if (naverLoginId == null || naverLoginId.isBlank() || naverLoginPw == null || naverLoginPw.isBlank()) {
-            log.warn("[NaverLogin] 로그인 정보 없음 — 스킵");
-            return;
-        }
-        try {
-            driver.get("https://nid.naver.com/nidlogin.login");
-            Thread.sleep(2000);
-
-            // JavaScript로 ID/PW 입력 (Selenium 직접 입력은 봇 감지됨)
-            JavascriptExecutor js = (JavascriptExecutor) driver;
-            js.executeScript(
-                    "document.getElementById('id').value = arguments[0];" +
-                    "document.getElementById('pw').value = arguments[1];",
-                    naverLoginId, naverLoginPw);
-
-            Thread.sleep(500);
-
-            // 로그인 버튼 클릭
-            WebElement loginBtn = driver.findElement(By.id("log.login"));
-            loginBtn.click();
-
-            Thread.sleep(3000);
-
-            // 로그인 성공 확인 (URL이 nid.naver.com이 아닌 곳으로 이동)
-            String currentUrl = driver.getCurrentUrl();
-            if (!currentUrl.contains("nidlogin")) {
-                loggedIn = true;
-                log.info("[NaverLogin] 로그인 성공 — URL: {}", currentUrl);
-            } else {
-                log.warn("[NaverLogin] 로그인 실패 — URL: {}", currentUrl);
-            }
-        } catch (Exception e) {
-            log.warn("[NaverLogin] 로그인 실패: {}", e.getMessage());
         }
     }
 
@@ -451,11 +416,6 @@ public class InternetDetectionService {
             return;
         }
         try {
-            // 로그인 안 되어있으면 재시도
-            if (!loggedIn) {
-                loginToNaver();
-            }
-
             driver.get(pageUrl);
             Thread.sleep(2000);
 
