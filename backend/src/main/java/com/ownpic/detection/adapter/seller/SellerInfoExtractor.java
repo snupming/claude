@@ -52,10 +52,11 @@ public class SellerInfoExtractor {
     private static final Pattern ADDRESS = Pattern.compile(
             "(?:소재지|사업장[\\s]*주소|주소)\\s*[：:.]?\\s*([^\\n<]{5,100})");
 
-    // 에러 페이지 감지 키워드
+    // 에러 페이지 / CAPTCHA 감지 키워드
     private static final Set<String> ERROR_PAGE_KEYWORDS = Set.of(
             "access denied", "403 forbidden", "404 not found", "page not found",
-            "서비스 점검", "잠시만 기다려", "접근이 제한", "페이지를 찾을 수 없");
+            "서비스 점검", "잠시만 기다려", "접근이 제한", "페이지를 찾을 수 없",
+            "에러페이지", "보안 인증", "captcha", "robot", "자동등록방지");
 
     // 크롤링 스킵 도메인 (CDN + 플랫폼 본사 페이지)
     private static final Set<String> SKIP_DOMAINS = Set.of(
@@ -140,7 +141,19 @@ public class SellerInfoExtractor {
             return extractOverseas(url, platform);
         }
 
-        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡, 네이버 스마트스토어 등)
+        // ★ 스마트스토어: Selenium 없이 JSoup으로 스토어 메인 페이지 직접 접속
+        //   상품 URL → 스토어 메인 페이지 footer에서 사업자 정보 추출
+        //   (상품 페이지는 CAPTCHA/봇 감지 위험이 높음)
+        if ("NAVER_SMARTSTORE".equals(platform.type()) || "NAVER_BRAND".equals(platform.type())) {
+            SellerInfo smartStoreInfo = extractSmartStoreSellerInfo(url, platform);
+            if (smartStoreInfo != null && (smartStoreInfo.sellerName() != null || smartStoreInfo.hasBusinessInfo())) {
+                return smartStoreInfo;
+            }
+            log.info("[SellerExtractor] 스마트스토어 전용 추출 실패 — 일반 플로우 진행: {}", url);
+        }
+
+        // 1차: Selenium으로 접속 (JS 동적 로딩 대응 — 쿠팡 등)
+        //   스마트스토어는 Selenium 시 CAPTCHA 위험이 있으므로 위에서 JSoup으로 먼저 시도
         String pageSource = null;
         if (seleniumAdapter.isEnabled()) {
             log.info("[SellerExtractor] Selenium으로 접속: {} ({})", url, platform.type());
@@ -154,11 +167,20 @@ public class SellerInfoExtractor {
             log.info("[SellerExtractor] Selenium 비활성 — JSoup fallback: {}", url);
         }
 
-        // 2차: Selenium 실패 시 JSoup fallback
+        // Selenium 결과가 CAPTCHA/에러 페이지이면 JSoup fallback
         Document doc;
         if (pageSource != null) {
             doc = Jsoup.parse(pageSource);
+            if (isErrorPage(doc)) {
+                log.info("[SellerExtractor] Selenium 결과가 CAPTCHA/에러 — JSoup fallback: {}", url);
+                pageSource = null; // JSoup fallback으로 진행
+            }
         } else {
+            doc = null;
+        }
+
+        // 2차: Selenium 실패/CAPTCHA 시 JSoup fallback
+        if (pageSource == null) {
             try {
                 doc = fetchPageJsoup(url);
             } catch (Exception e) {
@@ -374,6 +396,106 @@ public class SellerInfoExtractor {
         return new SellerInfo(null, null, sellerName, bizNumber, representative, address, phone, email, null);
     }
 
+    /**
+     * 스마트스토어 전용 판매자 정보 추출.
+     *
+     * 전략:
+     * 1. 상품 URL에서 스토어명 추출 (예: /lovbong/products/123 → lovbong)
+     * 2. 스토어 메인 페이지 JSoup 접속 (CAPTCHA 위험 낮음)
+     * 3. footer + embedded JSON에서 사업자 정보 파싱
+     */
+    private SellerInfo extractSmartStoreSellerInfo(String url, Platform platform) {
+        String storeName = extractSmartStoreNameFromUrl(url);
+        if (storeName == null) return null;
+
+        String storeMainUrl = "https://smartstore.naver.com/" + storeName;
+        log.info("[SellerExtractor] 스마트스토어 메인 페이지 접속: {} (storeName={})", storeMainUrl, storeName);
+
+        try {
+            Document doc = fetchPageJsoup(storeMainUrl);
+            if (isErrorPage(doc)) {
+                log.info("[SellerExtractor] 스마트스토어 메인 에러 페이지 — 상품 URL로 재시도");
+                doc = fetchPageJsoup(url);
+                if (isErrorPage(doc)) return null;
+            }
+
+            // 1차: __NEXT_DATA__ 등 embedded JSON에서 추출
+            String jsonInfo = extractFromEmbeddedJson(doc);
+
+            // 2차: footer / seller_info 영역에서 추출
+            Hint hint = PlatformHint.get(platform.type());
+            String footerText = "";
+            if (hint.businessInfoSelector() != null) {
+                Elements els = doc.select(hint.businessInfoSelector());
+                footerText = els.text();
+            }
+            if (footerText.isBlank()) {
+                Elements footer = doc.select("footer, #footer, .footer, [class*=footer], [class*=Footer]");
+                footerText = footer.isEmpty() ? "" : footer.text();
+            }
+
+            // 3차: dt/dd 구조 파싱
+            SellerInfo structured = parseStructured(doc, platform, false);
+            if (structured != null && structured.hasBusinessInfo()) {
+                log.info("[SellerExtractor] 스마트스토어 구조화 파싱 성공: {} / {}",
+                        structured.sellerName(), structured.businessRegNumber());
+                return new SellerInfo(platform.type(), platform.category(),
+                        structured.sellerName(), structured.businessRegNumber(),
+                        structured.representativeName(), structured.businessAddress(),
+                        structured.contactPhone(), structured.contactEmail(), storeMainUrl);
+            }
+
+            // 4차: 텍스트 + JSON 병합 후 정규식 추출
+            String targetText = (jsonInfo != null ? jsonInfo + " " : "") + footerText;
+            if (targetText.isBlank()) {
+                targetText = doc.body() != null ? doc.body().text() : "";
+            }
+
+            String sellerName = extractFirst(COMPANY_CORP, targetText);
+            if (sellerName == null) sellerName = extractFirst(STORE_NAME, targetText);
+            // 스토어명을 상호명 fallback으로 사용
+            if (sellerName == null) {
+                String title = doc.title();
+                if (title != null && !title.contains("에러") && !title.isBlank()) {
+                    // 네이버 스마트스토어 title: "스토어이름 : 네이버쇼핑 스마트스토어" 형태
+                    sellerName = title.split("[:\\-–|]")[0].trim();
+                }
+            }
+
+            String bizNumber = extractFirst(BIZ_NUMBER, targetText);
+            if (sellerName == null && bizNumber == null) return null;
+
+            log.info("[SellerExtractor] 스마트스토어 추출 성공: {} / {}", sellerName, bizNumber);
+            return new SellerInfo(
+                    platform.type(), platform.category(),
+                    sellerName, bizNumber,
+                    extractFirst(REPRESENTATIVE, targetText),
+                    extractFirst(ADDRESS, targetText),
+                    extractFirst(PHONE, targetText),
+                    extractFirst(EMAIL, targetText),
+                    storeMainUrl
+            );
+        } catch (Exception e) {
+            log.info("[SellerExtractor] 스마트스토어 메인 접속 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 스마트스토어 URL에서 스토어명 추출: /lovbong/products/123 → lovbong */
+    private String extractSmartStoreNameFromUrl(String url) {
+        try {
+            String path = new java.net.URI(url).getPath();
+            if (path == null || path.equals("/")) return null;
+            String[] segments = path.split("/");
+            for (String seg : segments) {
+                if (!seg.isBlank() && !seg.equals("products") && !seg.matches("\\d+")) {
+                    return seg;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     private SellerInfo extractSnsProfile(String url, Platform platform) {
         String accountId = extractAccountFromUrl(url);
         try {
@@ -515,7 +637,7 @@ public class SellerInfoExtractor {
     private void applyToResult(InternetDetectionResult result, SellerInfo info) {
         result.setPlatformType(info.platformType());
         result.setSellerName(truncate(info.sellerName(), 200));
-        result.setBusinessRegNumber(truncate(info.businessRegNumber(), 20));
+        result.setBusinessRegNumber(truncate(info.businessRegNumber(), 50));
         result.setRepresentativeName(truncate(info.representativeName(), 100));
         result.setBusinessAddress(truncate(info.businessAddress(), 500));
         result.setContactPhone(truncate(info.contactPhone(), 50));
