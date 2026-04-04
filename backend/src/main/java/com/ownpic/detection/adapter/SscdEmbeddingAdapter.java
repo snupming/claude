@@ -85,13 +85,12 @@ class SscdEmbeddingAdapter implements SscdEmbeddingPort {
 
     private float[] infer(float[] preprocessed) {
         try {
-            OnnxTensor inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(preprocessed), new long[]{1, 3, INPUT_SIZE, INPUT_SIZE});
-            try (var results = session.run(Map.of(inputName, inputTensor))) {
+            try (OnnxTensor inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(preprocessed), new long[]{1, 3, INPUT_SIZE, INPUT_SIZE});
+                 var results = session.run(Map.of(inputName, inputTensor))
+            ) {
                 OnnxValue output = results.get(outputName).orElseThrow(
                         () -> new OrtException("Output tensor not found"));
                 return ((float[][]) output.getValue())[0];
-            } finally {
-                inputTensor.close();
             }
         } catch (OrtException e) {
             throw new MlEngineUnavailableException("SSCD inference failed: " + e.getMessage());

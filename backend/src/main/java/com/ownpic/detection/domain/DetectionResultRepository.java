@@ -6,6 +6,5 @@ import java.util.List;
 
 public interface DetectionResultRepository extends JpaRepository<DetectionResult, Long> {
     List<DetectionResult> findByScanIdOrderByCreatedAt(Long scanId);
-    int countByScanId(Long scanId);
     void deleteBySourceImageId(Long sourceImageId);
 }

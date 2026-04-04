@@ -30,7 +30,7 @@ const expanded = ref(false)
 const severity = computed(() => {
   const s = props.result.sscdSimilarity ?? 0
   const d = props.result.dinoSimilarity ?? 0
-  if (s >= 0.7 || d >= 0.9) return { label: '도용 확실', class: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800', level: 'high' }
+  if (s >= 0.7 || d >= 0.9) return { label: '도용 유력', class: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800', level: 'high' }
   if (s >= 0.5 || d >= 0.7) return { label: '도용 의심', class: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800', level: 'medium' }
   if (s >= 0.3 || d >= 0.5) return { label: '유사', class: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800', level: 'low' }
   return { label: '낮은 유사도', class: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700', level: 'none' }

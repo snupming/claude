@@ -76,7 +76,7 @@ public class DetectionService {
             List<DetectionResult> allResults = new ArrayList<>();
             int scannedCount = 0;
 
-            List<List<Image>> chunks = partition(images, BATCH_SIZE);
+            List<List<Image>> chunks = partition(images);
 
             for (List<Image> chunk : chunks) {
                 // SSCD 배치
@@ -129,7 +129,7 @@ public class DetectionService {
         for (BatchResult m : sscdMatches) {
             if (m.matchedUserId().equals(userId)) continue; // 같은 유저 제외
             String key = m.sourceImageId() + ":" + m.matchedImageId();
-            pairScores.computeIfAbsent(key, k -> new double[]{0, 0})[0] =
+            pairScores.computeIfAbsent(key, _ -> new double[]{0, 0})[0] =
                     Math.max(pairScores.getOrDefault(key, new double[]{0, 0})[0], m.similarity());
             pairUsers.put(key, m.matchedUserId());
         }
@@ -137,7 +137,7 @@ public class DetectionService {
         for (BatchResult m : dinoMatches) {
             if (m.matchedUserId().equals(userId)) continue;
             String key = m.sourceImageId() + ":" + m.matchedImageId();
-            pairScores.computeIfAbsent(key, k -> new double[]{0, 0})[1] =
+            pairScores.computeIfAbsent(key, _ -> new double[]{0, 0})[1] =
                     Math.max(pairScores.getOrDefault(key, new double[]{0, 0})[1], m.similarity());
             pairUsers.put(key, m.matchedUserId());
         }
@@ -163,7 +163,7 @@ public class DetectionService {
             }
 
             results.add(new DetectionResult(scanId, sourceId, matchedId,
-                    pairUsers.get(entry.getKey()), sscd > 0 ? sscd : null,
+                    pairUsers.get(entry.getKey()), sscd,
                     dino > 0 ? dino : null, judgment));
         }
     }
@@ -224,10 +224,10 @@ public class DetectionService {
         return result;
     }
 
-    private static <T> List<List<T>> partition(List<T> list, int size) {
+    private static <T> List<List<T>> partition(List<T> list) {
         List<List<T>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        for (int i = 0; i < list.size(); i += DetectionService.BATCH_SIZE) {
+            partitions.add(list.subList(i, Math.min(i + DetectionService.BATCH_SIZE, list.size())));
         }
         return partitions;
     }

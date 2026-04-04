@@ -2,8 +2,6 @@ package com.ownpic.detection.adapter;
 
 import com.ownpic.detection.port.SimilarImageSearchPort;
 import com.ownpic.shared.ml.PgvectorUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -14,8 +12,6 @@ import java.util.UUID;
 @Component
 @Profile("pgvector")
 class PgvectorSearchAdapter implements SimilarImageSearchPort {
-
-    private static final Logger log = LoggerFactory.getLogger(PgvectorSearchAdapter.class);
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -60,7 +56,7 @@ class PgvectorSearchAdapter implements SimilarImageSearchPort {
                 """.formatted(column, column, column, column);
 
         return jdbcTemplate.query(sql,
-                (rs, rowNum) -> new SimilarImage(
+                (rs, _) -> new SimilarImage(
                         rs.getLong("id"),
                         UUID.fromString(rs.getString("user_id")),
                         rs.getDouble("similarity")),
@@ -83,7 +79,7 @@ class PgvectorSearchAdapter implements SimilarImageSearchPort {
                 """.formatted(column, column, column, column);
 
         return jdbcTemplate.query(sql,
-                (rs, rowNum) -> new SimilarImage(
+                (rs, _) -> new SimilarImage(
                         rs.getLong("id"),
                         UUID.fromString(rs.getString("user_id")),
                         rs.getDouble("similarity")),
@@ -133,7 +129,7 @@ class PgvectorSearchAdapter implements SimilarImageSearchPort {
                 """.formatted(values, column, column, column, column);
 
         return jdbcTemplate.query(sql,
-                (rs, rowNum) -> new BatchResult(
+                (rs, _) -> new BatchResult(
                         rs.getLong("source_id"),
                         rs.getLong("matched_id"),
                         UUID.fromString(rs.getString("matched_user_id")),

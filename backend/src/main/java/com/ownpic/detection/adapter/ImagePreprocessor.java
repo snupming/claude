@@ -1,14 +1,12 @@
 package com.ownpic.detection.adapter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import javax.imageio.ImageIO;
 
 /**
  * SSCD 전처리 파이프라인.
@@ -16,8 +14,6 @@ import javax.imageio.ImageIO;
  */
 @Component
 public class ImagePreprocessor {
-
-    private static final Logger log = LoggerFactory.getLogger(ImagePreprocessor.class);
 
     private static final int INPUT_SIZE = 320;
     private static final float[] MEAN = {0.485f, 0.456f, 0.406f};
@@ -133,10 +129,10 @@ public class ImagePreprocessor {
         int[] counts = new int[colors.length];
         int tolSq = TRIM_TOLERANCE * TRIM_TOLERANCE;
         for (int i = 0; i < colors.length; i++) {
-            for (int j = 0; j < colors.length; j++) {
-                int dR = ((colors[i] >> 16) & 0xFF) - ((colors[j] >> 16) & 0xFF);
-                int dG = ((colors[i] >> 8) & 0xFF) - ((colors[j] >> 8) & 0xFF);
-                int dB = (colors[i] & 0xFF) - (colors[j] & 0xFF);
+            for (int color : colors) {
+                int dR = ((colors[i] >> 16) & 0xFF) - ((color >> 16) & 0xFF);
+                int dG = ((colors[i] >> 8) & 0xFF) - ((color >> 8) & 0xFF);
+                int dB = (colors[i] & 0xFF) - (color & 0xFF);
                 if (dR * dR + dG * dG + dB * dB <= tolSq) counts[i]++;
             }
         }

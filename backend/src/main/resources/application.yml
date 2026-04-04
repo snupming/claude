@@ -32,9 +32,9 @@ spring:
     problemdetails:
       enabled: true
 
-logging:
-  level:
-    com.ownpic: DEBUG
+  logging:
+    level:
+      com.ownpic: DEBUG
 
 server:
   port: ${SERVER_PORT:8080}
@@ -62,7 +62,7 @@ ownpic:
   #   1. API 키: GOOGLE_VISION_API_KEY 환경변수
   #   2. 서비스 계정: GOOGLE_APPLICATION_CREDENTIALS 환경변수
   google:
-    vision-api-key: ${GOOGLE_VISION_API_KEY:AIzaSyDvUupyaWU-U9xrUJJHgO65vL7QIROudqE}
+
     selenium-enabled: ${GOOGLE_SELENIUM_ENABLED:true}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
