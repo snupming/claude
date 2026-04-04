@@ -56,6 +56,8 @@ ownpic:
   naver:
     client-id: ${NAVER_CLIENT_ID:mFs16l2rir71yzSBOlXE}
     client-secret: ${NAVER_CLIENT_SECRET:5PamyFVcE6}
+    login-id: ${NAVER_LOGIN_ID:dhdldgkgk}
+    login-pw: ${NAVER_LOGIN_PW:dnjzmaos88*}
   # Google Cloud Vision API (WebDetection)
   # 활성화: SPRING_PROFILES_ACTIVE에 google 추가
   # 인증 (둘 중 하나):

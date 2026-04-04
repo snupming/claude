@@ -15,11 +15,17 @@ import com.ownpic.detection.port.SscdEmbeddingPort;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -64,6 +70,18 @@ public class InternetDetectionService {
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
 
+    @Value("${ownpic.naver.login-id:}")
+    private String naverLoginId;
+
+    @Value("${ownpic.naver.login-pw:}")
+    private String naverLoginPw;
+
+    @Value("${ownpic.google.selenium-enabled:true}")
+    private boolean seleniumEnabled;
+
+    private WebDriver driver;
+    private boolean loggedIn = false;
+
     public InternetDetectionService(DetectionScanRepository scanRepository,
                                     InternetDetectionResultRepository resultRepository,
                                     ImageRepository imageRepository,
@@ -78,6 +96,86 @@ public class InternetDetectionService {
         this.downloadPort = downloadPort;
         this.sscdPort = sscdPort;
         this.dinoPort = dinoPort;
+    }
+
+    @PostConstruct
+    public void initSelenium() {
+        if (!seleniumEnabled) {
+            log.info("[Selenium] 비활성 — ownpic.google.selenium-enabled=false");
+            return;
+        }
+        try {
+            ChromeOptions options = new ChromeOptions();
+            options.addArguments(
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-blink-features=AutomationControlled",
+                    "--lang=ko-KR",
+                    "--window-size=1920,1080",
+                    "--headless=new"
+            );
+            options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
+            options.setExperimentalOption("useAutomationExtension", false);
+
+            driver = new ChromeDriver(options);
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+
+            // navigator.webdriver 감지 방지
+            ((JavascriptExecutor) driver).executeScript(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
+
+            log.info("[Selenium] Chrome 브라우저 초기화 완료");
+
+            loginToNaver();
+        } catch (Exception e) {
+            log.warn("[Selenium] 초기화 실패: {}", e.getMessage());
+            seleniumEnabled = false;
+        }
+    }
+
+    @PreDestroy
+    public void cleanupSelenium() {
+        if (driver != null) {
+            try { driver.quit(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void loginToNaver() {
+        if (naverLoginId == null || naverLoginId.isBlank() || naverLoginPw == null || naverLoginPw.isBlank()) {
+            log.warn("[NaverLogin] 로그인 정보 없음 — 스킵");
+            return;
+        }
+        try {
+            driver.get("https://nid.naver.com/nidlogin.login");
+            Thread.sleep(2000);
+
+            // JavaScript로 ID/PW 입력 (Selenium 직접 입력은 봇 감지됨)
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            js.executeScript(
+                    "document.getElementById('id').value = arguments[0];" +
+                    "document.getElementById('pw').value = arguments[1];",
+                    naverLoginId, naverLoginPw);
+
+            Thread.sleep(500);
+
+            // 로그인 버튼 클릭
+            WebElement loginBtn = driver.findElement(By.id("log.login"));
+            loginBtn.click();
+
+            Thread.sleep(3000);
+
+            // 로그인 성공 확인 (URL이 nid.naver.com이 아닌 곳으로 이동)
+            String currentUrl = driver.getCurrentUrl();
+            if (!currentUrl.contains("nidlogin")) {
+                loggedIn = true;
+                log.info("[NaverLogin] 로그인 성공 — URL: {}", currentUrl);
+            } else {
+                log.warn("[NaverLogin] 로그인 실패 — URL: {}", currentUrl);
+            }
+        } catch (Exception e) {
+            log.warn("[NaverLogin] 로그인 실패: {}", e.getMessage());
+        }
     }
 
     @Transactional
@@ -343,53 +441,56 @@ public class InternetDetectionService {
     }
 
     /**
-     * 페이지에서 window.__PRELOADED_STATE__ JSON을 파싱하여 판매자 정보 추출.
+     * Selenium(네이버 로그인 상태)으로 페이지 접속 후
+     * window.__PRELOADED_STATE__ JSON에서 판매자 정보 추출.
      */
     private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
         if (pageUrl == null || pageUrl.isBlank()) return;
+        if (driver == null || !seleniumEnabled) {
+            log.info("[SellerInfo] Selenium 비활성 — 스킵: {}", pageUrl);
+            return;
+        }
         try {
-            Document doc = Jsoup.connect(pageUrl)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10_000)
-                    .followRedirects(true)
-                    .ignoreHttpErrors(true)
-                    .get();
+            // 로그인 안 되어있으면 재시도
+            if (!loggedIn) {
+                loginToNaver();
+            }
+
+            driver.get(pageUrl);
+            Thread.sleep(2000);
+
+            String pageSource = driver.getPageSource();
 
             // window.__PRELOADED_STATE__ = { ... }; 찾기
-            for (Element script : doc.select("script")) {
-                String html = script.html();
-                if (!html.contains("__PRELOADED_STATE__")) continue;
-
-                Matcher m = PRELOADED_STATE_PATTERN.matcher(html);
-                if (!m.find()) continue;
-
-                String jsonStr = m.group(1);
-                JsonNode root = objectMapper.readTree(jsonStr);
-
-                // JSON 트리 전체에서 사업자 정보 필드 탐색
-                String representName = findJsonValue(root, "representName");
-                String identity = findJsonValue(root, "identity");
-                String representativeName = findJsonValue(root, "representativeName");
-                String mailOrderNumber = findJsonValue(root, "declaredToOnlineMarkettingNumber");
-                String fullAddress = findNestedJsonValue(root, "businessAddressInfo", "fullAddressInfo");
-
-                if (representName != null || identity != null) {
-                    result.setSellerName(representName);
-                    result.setBusinessRegNumber(formatBizNumber(identity));
-                    result.setRepresentativeName(representativeName);
-                    result.setMailOrderNumber(mailOrderNumber);
-                    result.setBusinessAddress(fullAddress);
-                    // 스토어 URL 추출: smartstore.naver.com/{storeName}
-                    result.setStoreUrl(extractStoreUrl(pageUrl));
-                    result.setPlatformType("NAVER_SMARTSTORE");
-
-                    log.info("[SellerInfo] 추출 성공 — 상호:{} / 사업자:{} / 대표:{} / 통신판매:{} / 주소:{}",
-                            representName, formatBizNumber(identity), representativeName,
-                            mailOrderNumber, fullAddress);
-                }
+            Matcher m = PRELOADED_STATE_PATTERN.matcher(pageSource);
+            if (!m.find()) {
+                log.info("[SellerInfo] __PRELOADED_STATE__ 없음: {}", pageUrl);
                 return;
             }
-            log.info("[SellerInfo] __PRELOADED_STATE__ 없음: {}", pageUrl);
+
+            String jsonStr = m.group(1);
+            JsonNode root = objectMapper.readTree(jsonStr);
+
+            // channel 객체 내 사업자 정보 추출
+            String representName = findJsonValue(root, "representName");
+            String identity = findJsonValue(root, "identity");
+            String representativeName = findJsonValue(root, "representativeName");
+            String mailOrderNumber = findJsonValue(root, "declaredToOnlineMarkettingNumber");
+            String fullAddress = findNestedJsonValue(root, "businessAddressInfo", "fullAddressInfo");
+
+            if (representName != null || identity != null) {
+                result.setSellerName(representName);
+                result.setBusinessRegNumber(formatBizNumber(identity));
+                result.setRepresentativeName(representativeName);
+                result.setMailOrderNumber(mailOrderNumber);
+                result.setBusinessAddress(fullAddress);
+                result.setStoreUrl(extractStoreUrl(pageUrl));
+                result.setPlatformType("NAVER_SMARTSTORE");
+
+                log.info("[SellerInfo] 추출 성공 — 상호:{} / 사업자:{} / 대표:{} / 통신판매:{} / 주소:{}",
+                        representName, formatBizNumber(identity), representativeName,
+                        mailOrderNumber, fullAddress);
+            }
         } catch (Exception e) {
             log.warn("[SellerInfo] 파싱 실패: {} — {}", pageUrl, e.getMessage());
         }
