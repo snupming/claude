@@ -433,6 +433,9 @@ public class InternetDetectionService {
             }
 
             String jsonStr = m.group(1);
+            // JavaScript undefined → JSON null 변환
+            jsonStr = jsonStr.replaceAll(":\\s*undefined", ": null")
+                             .replaceAll(",\\s*undefined", ", null");
             JsonNode root = objectMapper.readTree(jsonStr);
 
             // channel 객체 내 사업자 정보 추출
