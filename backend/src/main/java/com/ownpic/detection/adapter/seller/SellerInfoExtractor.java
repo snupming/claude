@@ -396,9 +396,10 @@ public class SellerInfoExtractor {
                     || label.contains("업체") || label.contains("판매자") || label.contains("seller"))) {
                 sellerName = value;
             }
-            // 사업자번호
+            // 사업자번호 — 정규식으로 번호만 추출 (dd/td에 부가 텍스트 포함될 수 있음)
             else if (bizNumber == null && (label.contains("사업자") || label.contains("business"))) {
-                bizNumber = value;
+                Matcher bizMatcher = BIZ_NUMBER.matcher(value);
+                bizNumber = bizMatcher.find() ? bizMatcher.group(1) : value;
             }
             // 대표자
             else if (representative == null && label.contains("대표")) {
@@ -563,12 +564,17 @@ public class SellerInfoExtractor {
 
     private void applyToResult(InternetDetectionResult result, SellerInfo info) {
         result.setPlatformType(info.platformType());
-        result.setSellerName(info.sellerName());
-        result.setBusinessRegNumber(info.businessRegNumber());
-        result.setRepresentativeName(info.representativeName());
-        result.setBusinessAddress(info.businessAddress());
-        result.setContactPhone(info.contactPhone());
-        result.setContactEmail(info.contactEmail());
-        result.setStoreUrl(info.storeUrl());
+        result.setSellerName(truncate(info.sellerName(), 200));
+        result.setBusinessRegNumber(truncate(info.businessRegNumber(), 20));
+        result.setRepresentativeName(truncate(info.representativeName(), 100));
+        result.setBusinessAddress(truncate(info.businessAddress(), 500));
+        result.setContactPhone(truncate(info.contactPhone(), 50));
+        result.setContactEmail(truncate(info.contactEmail(), 200));
+        result.setStoreUrl(truncate(info.storeUrl(), 500));
+    }
+
+    private static String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) return value;
+        return value.substring(0, maxLength);
     }
 }
