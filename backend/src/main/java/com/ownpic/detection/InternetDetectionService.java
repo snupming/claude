@@ -41,8 +41,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class InternetDetectionService {
@@ -55,9 +53,6 @@ public class InternetDetectionService {
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
     private static final int MAX_MATCHES_PER_IMAGE = 20;
-    private static final Pattern PRELOADED_STATE_PATTERN = Pattern.compile(
-            "window\\.__PRELOADED_STATE__\\s*=\\s*(\\{.+?\\})\\s*;?\\s*</script>",
-            Pattern.DOTALL);
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final DetectionScanRepository scanRepository;
@@ -423,19 +418,17 @@ public class InternetDetectionService {
             driver.get(pageUrl);
             Thread.sleep(2000);
 
-            String pageSource = driver.getPageSource();
-
-            // window.__PRELOADED_STATE__ = { ... }; 찾기
-            Matcher m = PRELOADED_STATE_PATTERN.matcher(pageSource);
-            if (!m.find()) {
-                log.info("[SellerInfo] __PRELOADED_STATE__ 없음: {}", pageUrl);
+            // JavaScript로 __PRELOADED_STATE__.channel 직접 추출 (정규식 파싱 불필요)
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            Object channelObj = js.executeScript(
+                    "return window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.channel " +
+                    "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
+            if (channelObj == null) {
+                log.info("[SellerInfo] __PRELOADED_STATE__.channel 없음: {}", pageUrl);
                 return;
             }
 
-            String jsonStr = m.group(1);
-            // JavaScript undefined → JSON null 변환
-            jsonStr = jsonStr.replaceAll(":\\s*undefined", ": null")
-                             .replaceAll(",\\s*undefined", ", null");
+            String jsonStr = channelObj.toString();
             JsonNode root = objectMapper.readTree(jsonStr);
 
             // channel 객체 내 사업자 정보 추출
