@@ -1,5 +1,7 @@
 package com.ownpic.detection;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ownpic.detection.domain.DetectionScan;
 import com.ownpic.detection.domain.DetectionScanRepository;
 import com.ownpic.detection.domain.InternetDetectionResult;
@@ -13,6 +15,9 @@ import com.ownpic.detection.port.SscdEmbeddingPort;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,11 +27,18 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class InternetDetectionService {
@@ -39,6 +51,10 @@ public class InternetDetectionService {
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
     private static final int MAX_MATCHES_PER_IMAGE = 20;
+    private static final Pattern PRELOADED_STATE_PATTERN = Pattern.compile(
+            "window\\.__PRELOADED_STATE__\\s*=\\s*(\\{.+?\\})\\s*;?\\s*</script>",
+            Pattern.DOTALL);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final DetectionScanRepository scanRepository;
     private final InternetDetectionResultRepository resultRepository;
@@ -215,10 +231,21 @@ public class InternetDetectionService {
                 sr.sourcePageUrl() != null ? sr.sourcePageUrl() : "(없음)",
                 sr.title() != null ? sr.title() : "(없음)");
 
-        return new InternetDetectionResult(
+        // 4. 리다이렉트 추적 + 판매자 정보 추출
+        String resolvedUrl = resolveRedirectUrl(sr.sourcePageUrl());
+        if (resolvedUrl != null && !resolvedUrl.equals(sr.sourcePageUrl())) {
+            log.info("[Scan:{}] 리다이렉트: {} → {}", scanId, sr.sourcePageUrl(), resolvedUrl);
+        }
+        String finalPageUrl = resolvedUrl != null ? resolvedUrl : sr.sourcePageUrl();
+
+        var result = new InternetDetectionResult(
                 scanId, sourceImageId,
-                sr.imageUrl(), sr.sourcePageUrl(), sr.title(),
+                sr.imageUrl(), finalPageUrl, sr.title(),
                 sscdSim, dinoSim, "INFRINGEMENT", "NAVER");
+
+        extractSellerInfo(finalPageUrl, result);
+
+        return result;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -269,5 +296,167 @@ public class InternetDetectionService {
             result[i] = buf.getFloat();
         }
         return result;
+    }
+
+    /**
+     * HTTP 리다이렉트를 수동으로 따라가서 최종 URL 반환.
+     */
+    private String resolveRedirectUrl(String originalUrl) {
+        if (originalUrl == null || originalUrl.isBlank()) return originalUrl;
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build();
+
+            String currentUrl = originalUrl;
+            for (int i = 0; i < 10; i++) {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(currentUrl))
+                        .timeout(Duration.ofSeconds(5))
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                        .build();
+
+                HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+                int status = response.statusCode();
+
+                if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
+                    String location = response.headers().firstValue("Location").orElse(null);
+                    if (location == null) break;
+                    // 상대 경로 처리
+                    if (location.startsWith("/")) {
+                        URI base = URI.create(currentUrl);
+                        location = base.getScheme() + "://" + base.getHost() + location;
+                    }
+                    log.info("[Redirect] {} → {} ({})", currentUrl, location, status);
+                    currentUrl = location;
+                } else {
+                    break;
+                }
+            }
+            return currentUrl;
+        } catch (Exception e) {
+            log.warn("[Redirect] 추적 실패: {} — {}", originalUrl, e.getMessage());
+            return originalUrl;
+        }
+    }
+
+    /**
+     * 페이지에서 window.__PRELOADED_STATE__ JSON을 파싱하여 판매자 정보 추출.
+     */
+    private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
+        if (pageUrl == null || pageUrl.isBlank()) return;
+        try {
+            Document doc = Jsoup.connect(pageUrl)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .timeout(10_000)
+                    .followRedirects(true)
+                    .ignoreHttpErrors(true)
+                    .get();
+
+            // window.__PRELOADED_STATE__ = { ... }; 찾기
+            for (Element script : doc.select("script")) {
+                String html = script.html();
+                if (!html.contains("__PRELOADED_STATE__")) continue;
+
+                Matcher m = PRELOADED_STATE_PATTERN.matcher(html);
+                if (!m.find()) continue;
+
+                String jsonStr = m.group(1);
+                JsonNode root = objectMapper.readTree(jsonStr);
+
+                // JSON 트리 전체에서 사업자 정보 필드 탐색
+                String representName = findJsonValue(root, "representName");
+                String identity = findJsonValue(root, "identity");
+                String representativeName = findJsonValue(root, "representativeName");
+                String mailOrderNumber = findJsonValue(root, "declaredToOnlineMarkettingNumber");
+                String fullAddress = findNestedJsonValue(root, "businessAddressInfo", "fullAddressInfo");
+
+                if (representName != null || identity != null) {
+                    result.setSellerName(representName);
+                    result.setBusinessRegNumber(formatBizNumber(identity));
+                    result.setRepresentativeName(representativeName);
+                    result.setMailOrderNumber(mailOrderNumber);
+                    result.setBusinessAddress(fullAddress);
+                    // 스토어 URL 추출: smartstore.naver.com/{storeName}
+                    result.setStoreUrl(extractStoreUrl(pageUrl));
+                    result.setPlatformType("NAVER_SMARTSTORE");
+
+                    log.info("[SellerInfo] 추출 성공 — 상호:{} / 사업자:{} / 대표:{} / 통신판매:{} / 주소:{}",
+                            representName, formatBizNumber(identity), representativeName,
+                            mailOrderNumber, fullAddress);
+                }
+                return;
+            }
+            log.info("[SellerInfo] __PRELOADED_STATE__ 없음: {}", pageUrl);
+        } catch (Exception e) {
+            log.warn("[SellerInfo] 파싱 실패: {} — {}", pageUrl, e.getMessage());
+        }
+    }
+
+    /**
+     * JSON 트리에서 특정 필드명을 재귀 탐색.
+     */
+    private static String findJsonValue(JsonNode node, String fieldName) {
+        if (node == null) return null;
+        if (node.has(fieldName) && node.get(fieldName).isTextual()) {
+            return node.get(fieldName).asText();
+        }
+        for (JsonNode child : node) {
+            String found = findJsonValue(child, fieldName);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    /**
+     * JSON 트리에서 parentField 아래의 childField 값을 재귀 탐색.
+     */
+    private static String findNestedJsonValue(JsonNode node, String parentField, String childField) {
+        if (node == null) return null;
+        if (node.has(parentField) && node.get(parentField).isObject()) {
+            JsonNode parent = node.get(parentField);
+            if (parent.has(childField) && parent.get(childField).isTextual()) {
+                return parent.get(childField).asText();
+            }
+        }
+        for (JsonNode child : node) {
+            String found = findNestedJsonValue(child, parentField, childField);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    /**
+     * 사업자번호 포맷: "1858100504" → "185-81-00504"
+     */
+    private static String formatBizNumber(String raw) {
+        if (raw == null) return null;
+        String digits = raw.replaceAll("[^0-9]", "");
+        if (digits.length() == 10) {
+            return digits.substring(0, 3) + "-" + digits.substring(3, 5) + "-" + digits.substring(5);
+        }
+        return raw;
+    }
+
+    /**
+     * 스마트스토어 URL에서 스토어 메인 URL 추출.
+     * https://smartstore.naver.com/lovbong/products/123 → https://smartstore.naver.com/lovbong
+     */
+    private static String extractStoreUrl(String pageUrl) {
+        if (pageUrl == null) return null;
+        try {
+            URI uri = URI.create(pageUrl);
+            String host = uri.getHost();
+            if (host == null) return pageUrl;
+            String path = uri.getPath();
+            if (path == null || path.equals("/")) return pageUrl;
+            String[] segments = path.split("/");
+            if (segments.length >= 2 && !segments[1].isBlank()) {
+                return "https://" + host + "/" + segments[1];
+            }
+        } catch (Exception ignored) {}
+        return pageUrl;
     }
 }

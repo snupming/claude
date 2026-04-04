@@ -66,6 +66,9 @@ public class InternetDetectionResult {
     @Column(name = "store_url", length = 500)
     private String storeUrl;
 
+    @Column(name = "mail_order_number", length = 50)
+    private String mailOrderNumber;
+
     @Column(name = "best_guess_label", length = 200)
     private String bestGuessLabel;
 
@@ -118,6 +121,9 @@ public class InternetDetectionResult {
     public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
     public void setContactEmail(String contactEmail) { this.contactEmail = contactEmail; }
     public void setStoreUrl(String storeUrl) { this.storeUrl = storeUrl; }
+
+    public String getMailOrderNumber() { return mailOrderNumber; }
+    public void setMailOrderNumber(String mailOrderNumber) { this.mailOrderNumber = mailOrderNumber; }
 
     public String getBestGuessLabel() { return bestGuessLabel; }
     public String getDetectedEntity() { return detectedEntity; }
