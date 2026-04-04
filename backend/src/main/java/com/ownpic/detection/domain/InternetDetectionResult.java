@@ -48,7 +48,7 @@ public class InternetDetectionResult {
     @Column(name = "seller_name", length = 200)
     private String sellerName;
 
-    @Column(name = "business_reg_number", length = 20)
+    @Column(name = "business_reg_number", length = 50)
     private String businessRegNumber;
 
     @Column(name = "representative_name", length = 100)
