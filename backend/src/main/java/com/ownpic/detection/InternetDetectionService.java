@@ -97,6 +97,9 @@ public class InternetDetectionService {
             return;
         }
         try {
+            String profileDir = System.getProperty("user.home")
+                    + java.io.File.separator + ".ownpic-chrome-profile";
+
             ChromeOptions options = new ChromeOptions();
             options.addArguments(
                     "--no-sandbox",
@@ -105,7 +108,8 @@ public class InternetDetectionService {
                     "--disable-blink-features=AutomationControlled",
                     "--lang=ko-KR",
                     "--window-size=1920,1080",
-                    "--user-data-dir=./chrome-profile"
+                    "--user-data-dir=" + profileDir,
+                    "--remote-debugging-port=0"
             );
             options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
             options.setExperimentalOption("useAutomationExtension", false);
@@ -129,7 +133,7 @@ public class InternetDetectionService {
                 log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
             }
 
-            log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir=./chrome-profile)");
+            log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir={})", profileDir);
         } catch (Exception e) {
             log.warn("[Selenium] 초기화 실패: {}", e.getMessage());
             seleniumEnabled = false;
