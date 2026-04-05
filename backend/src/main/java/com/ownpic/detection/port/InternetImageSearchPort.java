@@ -9,6 +9,7 @@ public interface InternetImageSearchPort {
     record SearchResult(
             String imageUrl,
             String sourcePageUrl,
-            String title
+            String title,
+            String mallName
     ) {}
 }

@@ -449,6 +449,10 @@ public class InternetDetectionService {
             String host = uri.getHost();
             if (host != null && host.contains("smartstore.naver.com")) {
                 extractSmartStoreSellerInfo(pageUrl, result);
+            } else if (host != null && host.contains("gmarket.co.kr")) {
+                extractGmarketSellerInfo(pageUrl, result);
+            } else if (host != null && host.contains("coupang.com")) {
+                extractCoupangSellerInfo(pageUrl, result);
             } else {
                 extractSellerInfoFromFooter(pageUrl, result);
             }
@@ -553,6 +557,114 @@ public class InternetDetectionService {
                     companyName, bizNumber, representative, mailOrderNumber);
         } else {
             log.info("[SellerInfo] footer에서 사업자 정보 못 찾음: {}", rootUrl);
+        }
+    }
+
+    /**
+     * 지마켓: window.goods.seller JSON에서 판매자 정보 추출.
+     */
+    private void extractGmarketSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
+        driver.get(pageUrl);
+        Thread.sleep(3000);
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        Object sellerObj = js.executeScript(
+                "return window.goods && window.goods.seller ? JSON.stringify(window.goods.seller) : null");
+        if (sellerObj == null) {
+            log.info("[SellerInfo] 지마켓 goods.seller 없음: {}", pageUrl);
+            return;
+        }
+
+        JsonNode seller = objectMapper.readTree(sellerObj.toString());
+
+        String companyName = seller.has("CompanyName") ? seller.get("CompanyName").asText() : null;
+        String companyNo = seller.has("CompanyNo") ? seller.get("CompanyNo").asText() : null;
+        String managerName = seller.has("ManagerName") ? seller.get("ManagerName").asText() : null;
+        String address = seller.has("SellerAddress") ? seller.get("SellerAddress").asText() : null;
+        String phone = seller.has("HelpDeskTelNo") ? seller.get("HelpDeskTelNo").asText() : null;
+        String email = seller.has("Email") ? seller.get("Email").asText() : null;
+        String ecommerceNo = seller.has("EcomerceNo") ? seller.get("EcomerceNo").asText() : null;
+
+        if (companyName != null || companyNo != null) {
+            result.setSellerName(companyName);
+            result.setBusinessRegNumber(formatBizNumber(companyNo));
+            result.setRepresentativeName(managerName);
+            result.setBusinessAddress(address);
+            result.setContactPhone(phone);
+            result.setContactEmail(email);
+            result.setMailOrderNumber(ecommerceNo);
+            result.setStoreUrl(pageUrl);
+            result.setPlatformType("MARKET_GMARKET");
+
+            log.info("[SellerInfo] 지마켓 추출 — 상호:{} / 사업자:{} / 대표:{}",
+                    companyName, formatBizNumber(companyNo), managerName);
+        }
+    }
+
+    /**
+     * 쿠팡: .product-seller 테이블에서 판매자 정보 추출.
+     */
+    private void extractCoupangSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
+        driver.get(pageUrl);
+        Thread.sleep(3000);
+
+        // 페이지 끝까지 스크롤 (판매자 정보가 하단에 있음)
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        js.executeScript("window.scrollTo(0, document.body.scrollHeight)");
+        Thread.sleep(1500);
+
+        // .product-seller 영역의 th/td 쌍을 JSON으로 추출
+        Object sellerObj = js.executeScript(
+                "var el = document.querySelector('.product-seller, .product-item__table.product-seller');" +
+                "if (!el) return null;" +
+                "var data = {};" +
+                "var rows = el.querySelectorAll('tr');" +
+                "for (var i = 0; i < rows.length; i++) {" +
+                "  var ths = rows[i].querySelectorAll('th');" +
+                "  var tds = rows[i].querySelectorAll('td');" +
+                "  for (var j = 0; j < ths.length && j < tds.length; j++) {" +
+                "    data[ths[j].innerText.trim()] = tds[j].innerText.trim();" +
+                "  }" +
+                "}" +
+                "return JSON.stringify(data);");
+
+        if (sellerObj == null) {
+            log.info("[SellerInfo] 쿠팡 .product-seller 없음: {}", pageUrl);
+            return;
+        }
+
+        JsonNode data = objectMapper.readTree(sellerObj.toString());
+
+        // "상호/대표자" → 슬래시로 분리
+        String companyAndRep = data.has("상호/대표자") ? data.get("상호/대표자").asText() : null;
+        String companyName = null, representative = null;
+        if (companyAndRep != null && companyAndRep.contains("/")) {
+            String[] parts = companyAndRep.split("/", 2);
+            companyName = parts[0].trim();
+            representative = parts[1].trim();
+        } else if (companyAndRep != null) {
+            companyName = companyAndRep.trim();
+        }
+
+        String address = data.has("사업장 소재지") ? data.get("사업장 소재지").asText() : null;
+        String email = data.has("e-mail") ? data.get("e-mail").asText() : null;
+        String phone = data.has("연락처") ? data.get("연락처").asText() : null;
+        String mailOrder = data.has("통신판매업 신고번호") ? data.get("통신판매업 신고번호").asText() : null;
+        String bizNumber = data.has("사업자번호") ? data.get("사업자번호").asText() : null;
+
+        if (companyName != null || bizNumber != null) {
+            result.setSellerName(companyName);
+            result.setBusinessRegNumber(bizNumber);
+            result.setRepresentativeName(representative);
+            result.setBusinessAddress(address);
+            result.setContactPhone(phone != null ? phone.trim() : null);
+            result.setContactEmail(email);
+            result.setMailOrderNumber(mailOrder);
+            result.setStoreUrl(pageUrl);
+            result.setPlatformType("MARKET_COUPANG");
+
+            log.info("[SellerInfo] 쿠팡 추출 — 상호:{} / 사업자:{} / 대표:{}",
+                    companyName, bizNumber, representative);
         }
     }
 
