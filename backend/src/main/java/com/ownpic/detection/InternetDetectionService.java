@@ -39,9 +39,12 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class InternetDetectionService {
@@ -68,6 +71,7 @@ public class InternetDetectionService {
     private boolean seleniumEnabled;
 
     private WebDriver driver;
+    private boolean loggedIn = false;
 
     public InternetDetectionService(DetectionScanRepository scanRepository,
                                     InternetDetectionResultRepository resultRepository,
@@ -120,10 +124,11 @@ public class InternetDetectionService {
             driver.get("https://nid.naver.com/nidlogin.login");
             Thread.sleep(2000);
             String currentUrl = driver.getCurrentUrl();
-            if (Objects.requireNonNull(currentUrl).contains("nidlogin")) {
+            if (currentUrl.contains("nidlogin")) {
                 log.warn("[Selenium] 네이버 미로그인 상태 — chrome-profile에서 수동 로그인 필요");
                 log.warn("[Selenium] headless 제거 후 수동 로그인하면 세션이 chrome-profile에 저장됩니다");
             } else {
+                loggedIn = true;
                 log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
             }
 
@@ -162,6 +167,7 @@ public class InternetDetectionService {
     public void executeInternetScanAsync(Long scanId, List<Image> images) {
         try {
             List<InternetDetectionResult> allResults = new ArrayList<>();
+            Map<String, InternetDetectionResult> seenBizNumbers = new HashMap<>();
             int scannedCount = 0;
 
             for (Image image : images) {
@@ -197,6 +203,17 @@ public class InternetDetectionService {
                         InternetDetectionResult result = processSearchResult(
                                 scanId, image.getId(), sr, sourceSSCD, sourceDINO);
                         if (result != null) {
+                            // 동일 사업자 중복 스킵 — 건수만 증가
+                            String biz = result.getBusinessRegNumber();
+                            if (biz != null && seenBizNumbers.containsKey(biz)) {
+                                seenBizNumbers.get(biz).incrementMatchCount();
+                                log.info("[Scan:{}] 동일 사업자 스킵 — {} ({}건째)",
+                                        scanId, biz, seenBizNumbers.get(biz).getMatchCount());
+                                continue;
+                            }
+                            if (biz != null) {
+                                seenBizNumbers.put(biz, result);
+                            }
                             imageResults.add(result);
                             naverMatches++;
                         }
@@ -403,56 +420,144 @@ public class InternetDetectionService {
         }
     }
 
+    // footer 파싱용 정규식
+    private static final Pattern BIZ_NUMBER_PAT = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
+    private static final Pattern REPRESENTATIVE_PAT = Pattern.compile(
+            "대표[자]?\\s*[：:.)]?\\s*([가-힣]{2,4})");
+    private static final Pattern COMPANY_NAME_PAT = Pattern.compile(
+            "(?:회사명|상호[명]?)\\s*[：:.)\\s]\\s*(.+?)(?=\\s{2,}|$)");
+    private static final Pattern ADDRESS_PAT = Pattern.compile(
+            "(?:사업자주소|소재지|사업장[\\s]*주소|주소)\\s*[：:.]?\\s*(.+?)(?=\\s{2,}|$)");
+    private static final Pattern MAIL_ORDER_PAT = Pattern.compile(
+            "제?\\s?\\d{4}-[가-힣]{2,5}-\\d{4}\\s?호?");
+    private static final Pattern EMAIL_PAT = Pattern.compile(
+            "([\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,})");
+    private static final Pattern PHONE_PAT = Pattern.compile(
+            "(0\\d{1,2}[-.)\\s]\\d{3,4}[-.)\\s]\\d{4})");
+
     /**
-     * Selenium(네이버 로그인 상태)으로 페이지 접속 후
-     * window.__PRELOADED_STATE__ JSON에서 판매자 정보 추출.
+     * 판매자 정보 추출 — 스마트스토어 vs 일반 쇼핑몰 분기.
      */
     private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
         if (pageUrl == null || pageUrl.isBlank()) return;
-        if (driver == null) {
+        if (driver == null || !seleniumEnabled) {
             log.info("[SellerInfo] Selenium 비활성 — 스킵: {}", pageUrl);
             return;
         }
         try {
-            driver.get(extractStoreUrl(pageUrl));
-            Thread.sleep(2000);
-
-            // JavaScript로 __PRELOADED_STATE__.channel 직접 추출 (정규식 파싱 불필요)
-            JavascriptExecutor js = (JavascriptExecutor) driver;
-            Object channelObj = js.executeScript(
-                    "return window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.channel " +
-                    "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
-            if (channelObj == null) {
-                log.info("[SellerInfo] __PRELOADED_STATE__.channel 없음: {}", pageUrl);
-                return;
-            }
-
-            String jsonStr = channelObj.toString();
-            JsonNode root = objectMapper.readTree(jsonStr);
-
-            // channel 객체 내 사업자 정보 추출
-            String representName = findJsonValue(root, "representName");
-            String identity = findJsonValue(root, "identity");
-            String representativeName = findJsonValue(root, "representativeName");
-            String mailOrderNumber = findJsonValue(root, "declaredToOnlineMarkettingNumber");
-            String fullAddress = findNestedJsonValue(root, "businessAddressInfo", "fullAddressInfo");
-
-            if (representName != null || identity != null) {
-                result.setSellerName(representName);
-                result.setBusinessRegNumber(formatBizNumber(identity));
-                result.setRepresentativeName(representativeName);
-                result.setMailOrderNumber(mailOrderNumber);
-                result.setBusinessAddress(fullAddress);
-                result.setStoreUrl(extractStoreUrl(pageUrl));
-                result.setPlatformType("NAVER_SMARTSTORE");
-
-                log.info("[SellerInfo] 추출 성공 — 상호:{} / 사업자:{} / 대표:{} / 통신판매:{} / 주소:{}",
-                        representName, formatBizNumber(identity), representativeName,
-                        mailOrderNumber, fullAddress);
+            URI uri = URI.create(pageUrl);
+            String host = uri.getHost();
+            if (host != null && host.contains("smartstore.naver.com")) {
+                extractSmartStoreSellerInfo(pageUrl, result);
+            } else {
+                extractSellerInfoFromFooter(pageUrl, result);
             }
         } catch (Exception e) {
             log.warn("[SellerInfo] 파싱 실패: {} — {}", pageUrl, e.getMessage());
         }
+    }
+
+    /**
+     * 스마트스토어: __PRELOADED_STATE__.channel 에서 사업자 정보 추출.
+     */
+    private void extractSmartStoreSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
+        driver.get(pageUrl);
+        Thread.sleep(2000);
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        Object channelObj = js.executeScript(
+                "return window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.channel " +
+                "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
+        if (channelObj == null) {
+            log.info("[SellerInfo] __PRELOADED_STATE__.channel 없음: {}", pageUrl);
+            return;
+        }
+
+        JsonNode root = objectMapper.readTree(channelObj.toString());
+
+        String representName = findJsonValue(root, "representName");
+        String identity = findJsonValue(root, "identity");
+        String representativeName = findJsonValue(root, "representativeName");
+        String mailOrderNumber = findJsonValue(root, "declaredToOnlineMarkettingNumber");
+        String fullAddress = findNestedJsonValue(root, "businessAddressInfo", "fullAddressInfo");
+
+        if (representName != null || identity != null) {
+            result.setSellerName(representName);
+            result.setBusinessRegNumber(formatBizNumber(identity));
+            result.setRepresentativeName(representativeName);
+            result.setMailOrderNumber(mailOrderNumber);
+            result.setBusinessAddress(fullAddress);
+            result.setStoreUrl(extractStoreUrl(pageUrl));
+            result.setPlatformType("NAVER_SMARTSTORE");
+
+            log.info("[SellerInfo] 스마트스토어 추출 — 상호:{} / 사업자:{} / 대표:{}",
+                    representName, formatBizNumber(identity), representativeName);
+        }
+    }
+
+    /**
+     * 일반 쇼핑몰: 도메인 루트 접속 → footer 영역에서 사업자 정보 정규식 파싱.
+     */
+    private void extractSellerInfoFromFooter(String pageUrl, InternetDetectionResult result) throws Exception {
+        // 도메인 루트 URL 추출
+        URI uri = URI.create(pageUrl);
+        String rootUrl = uri.getScheme() + "://" + uri.getHost();
+
+        driver.get(rootUrl);
+        Thread.sleep(2000);
+
+        // footer 영역 텍스트 추출 (여러 셀렉터 시도)
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        Object footerObj = js.executeScript(
+                "var selectors = ['footer', '.shop-info', '#footer', '.footer', " +
+                "'[class*=footer]', '[class*=Footer]', '[id*=footer]'];" +
+                "for (var i = 0; i < selectors.length; i++) {" +
+                "  var el = document.querySelector(selectors[i]);" +
+                "  if (el && el.innerText && el.innerText.length > 30) return el.innerText;" +
+                "}" +
+                "return null;");
+
+        if (footerObj == null) {
+            log.info("[SellerInfo] footer 없음: {}", rootUrl);
+            return;
+        }
+
+        String footerText = footerObj.toString();
+        log.info("[SellerInfo] footer 텍스트 ({}자): {}", footerText.length(),
+                footerText.length() > 200 ? footerText.substring(0, 200) + "..." : footerText);
+
+        // 정규식으로 사업자 정보 파싱
+        String bizNumber = extractFirst(BIZ_NUMBER_PAT, footerText);
+        String representative = extractFirst(REPRESENTATIVE_PAT, footerText);
+        String companyName = extractFirst(COMPANY_NAME_PAT, footerText);
+        String address = extractFirst(ADDRESS_PAT, footerText);
+        String email = extractFirst(EMAIL_PAT, footerText);
+        String phone = extractFirst(PHONE_PAT, footerText);
+
+        Matcher mailMatcher = MAIL_ORDER_PAT.matcher(footerText);
+        String mailOrderNumber = mailMatcher.find() ? mailMatcher.group().trim() : null;
+
+        if (bizNumber != null || companyName != null) {
+            result.setSellerName(companyName);
+            result.setBusinessRegNumber(bizNumber);
+            result.setRepresentativeName(representative);
+            result.setMailOrderNumber(mailOrderNumber);
+            result.setBusinessAddress(address);
+            result.setContactPhone(phone);
+            result.setContactEmail(email);
+            result.setStoreUrl(rootUrl);
+            result.setPlatformType("GENERIC");
+
+            log.info("[SellerInfo] footer 추출 — 상호:{} / 사업자:{} / 대표:{} / 통신판매:{}",
+                    companyName, bizNumber, representative, mailOrderNumber);
+        } else {
+            log.info("[SellerInfo] footer에서 사업자 정보 못 찾음: {}", rootUrl);
+        }
+    }
+
+    private static String extractFirst(Pattern pattern, String text) {
+        Matcher m = pattern.matcher(text);
+        return m.find() ? m.group(1).trim() : null;
     }
 
     /**
