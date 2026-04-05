@@ -18,8 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -86,21 +85,42 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
             JsonNode items = root.get("items");
 
             if (items != null && items.isArray()) {
+                // mallName별 그룹핑
+                Map<String, List<ParsedItem>> groups = new LinkedHashMap<>();
+                int itemIndex = 0;
                 for (JsonNode item : items) {
-                    String imageUrl = textOrNull(item, "image");       // 실제 이미지 URL
-                    String sourcePageUrl = textOrNull(item, "link");   // 상품 페이지 URL
+                    String imageUrl = textOrNull(item, "image");
+                    String link = textOrNull(item, "link");
                     String title = stripHtml(textOrNull(item, "title"));
-                    String mallName = textOrNull(item, "mallName");   // 판매자/스토어명
+                    String mallName = textOrNull(item, "mallName");
 
-                    // title에 mallName 포함 (판매자 식별용)
+                    if (imageUrl == null) continue;
+
+                    // 그룹 키: mallName 있으면 mallName, 없으면 item 인덱스 (개별 처리)
+                    String groupKey = (mallName != null && !mallName.isBlank())
+                            ? mallName : "__no_mall_" + (itemIndex++);
+                    groups.computeIfAbsent(groupKey, k -> new ArrayList<>())
+                            .add(new ParsedItem(imageUrl, link, title, mallName));
+                }
+
+                // 그룹별 대표 link 선택 + SearchResult 생성
+                for (var entry : groups.entrySet()) {
+                    List<ParsedItem> group = entry.getValue();
+                    String bestLink = selectBestLink(group);
+                    ParsedItem first = group.get(0);
+                    String title = first.title;
+                    String mallName = first.mallName;
+
                     if (mallName != null && title != null && !title.contains(mallName)) {
                         title = title + " [" + mallName + "]";
                     } else if (mallName != null && title == null) {
                         title = mallName;
                     }
 
-                    if (imageUrl != null) {
-                        results.add(new SearchResult(imageUrl, sourcePageUrl, title));
+                    results.add(new SearchResult(first.imageUrl, bestLink, title, mallName));
+
+                    if (group.size() > 1) {
+                        log.info("[Naver] 그룹핑: '{}' — {}개 상품 → 대표 link={}", entry.getKey(), group.size(), bestLink);
                     }
                 }
             }
@@ -148,4 +168,38 @@ public class NaverImageSearchAdapter implements InternetImageSearchPort {
         if (text == null) return null;
         return text.replaceAll("<[^>]+>", "").trim();
     }
+
+    /**
+     * 같은 mallName 그룹 내에서 최적 link URL 선택.
+     * 우선순위: smartstore.naver.com > link.coupang.com > link.gmarket.co.kr > 자체몰 > outlink
+     */
+    private static String selectBestLink(List<ParsedItem> group) {
+        String smartStore = null, coupang = null, gmarket = null, outlink = null, other = null;
+
+        for (ParsedItem item : group) {
+            String link = item.link;
+            if (link == null) continue;
+            if (link.contains("smartstore.naver.com/main")) {
+                smartStore = link;
+            } else if (link.contains("link.coupang.com")) {
+                coupang = link;
+            } else if (link.contains("link.gmarket.co.kr")) {
+                gmarket = link;
+            } else if (link.contains("shopping.naver.com/outlink")) {
+                outlink = link;
+            } else {
+                other = link;
+            }
+        }
+
+        // 우선순위: smartstore > coupang > gmarket > 자체몰(other) > outlink
+        if (smartStore != null) return smartStore;
+        if (coupang != null) return coupang;
+        if (gmarket != null) return gmarket;
+        if (other != null) return other;
+        if (outlink != null) return outlink;
+        return group.get(0).link;
+    }
+
+    private record ParsedItem(String imageUrl, String link, String title, String mallName) {}
 }
