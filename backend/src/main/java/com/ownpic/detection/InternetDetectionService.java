@@ -40,6 +40,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -67,7 +68,6 @@ public class InternetDetectionService {
     private boolean seleniumEnabled;
 
     private WebDriver driver;
-    private boolean loggedIn = false;
 
     public InternetDetectionService(DetectionScanRepository scanRepository,
                                     InternetDetectionResultRepository resultRepository,
@@ -120,11 +120,10 @@ public class InternetDetectionService {
             driver.get("https://nid.naver.com/nidlogin.login");
             Thread.sleep(2000);
             String currentUrl = driver.getCurrentUrl();
-            if (currentUrl.contains("nidlogin")) {
+            if (Objects.requireNonNull(currentUrl).contains("nidlogin")) {
                 log.warn("[Selenium] 네이버 미로그인 상태 — chrome-profile에서 수동 로그인 필요");
                 log.warn("[Selenium] headless 제거 후 수동 로그인하면 세션이 chrome-profile에 저장됩니다");
             } else {
-                loggedIn = true;
                 log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
             }
 
@@ -410,12 +409,12 @@ public class InternetDetectionService {
      */
     private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
         if (pageUrl == null || pageUrl.isBlank()) return;
-        if (driver == null || !seleniumEnabled) {
+        if (driver == null) {
             log.info("[SellerInfo] Selenium 비활성 — 스킵: {}", pageUrl);
             return;
         }
         try {
-            driver.get(pageUrl);
+            driver.get(extractStoreUrl(pageUrl));
             Thread.sleep(2000);
 
             // JavaScript로 __PRELOADED_STATE__.channel 직접 추출 (정규식 파싱 불필요)
