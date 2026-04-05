@@ -37,6 +37,27 @@ public class PlatformConnection {
     @Column(name = "token_expires_at")
     private Instant tokenExpiresAt;
 
+    @Column(name = "channel_no")
+    private Long channelNo;
+
+    @Column(name = "store_url", length = 500)
+    private String storeUrl;
+
+    @Column(name = "solution_id", length = 100)
+    private String solutionId;
+
+    @Column(name = "subscription_id", length = 100)
+    private String subscriptionId;
+
+    @Column(name = "plan_id", length = 100)
+    private String planId;
+
+    @Column(name = "subscription_status", length = 50)
+    private String subscriptionStatus;
+
+    @Column(name = "business_registration_number", length = 50)
+    private String businessRegistrationNumber;
+
     @Column(name = "last_synced_at")
     private Instant lastSyncedAt;
 
@@ -80,6 +101,27 @@ public class PlatformConnection {
 
     public Instant getTokenExpiresAt() { return tokenExpiresAt; }
     public void setTokenExpiresAt(Instant tokenExpiresAt) { this.tokenExpiresAt = tokenExpiresAt; }
+
+    public Long getChannelNo() { return channelNo; }
+    public void setChannelNo(Long channelNo) { this.channelNo = channelNo; }
+
+    public String getStoreUrl() { return storeUrl; }
+    public void setStoreUrl(String storeUrl) { this.storeUrl = storeUrl; }
+
+    public String getSolutionId() { return solutionId; }
+    public void setSolutionId(String solutionId) { this.solutionId = solutionId; }
+
+    public String getSubscriptionId() { return subscriptionId; }
+    public void setSubscriptionId(String subscriptionId) { this.subscriptionId = subscriptionId; }
+
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
+
+    public String getSubscriptionStatus() { return subscriptionStatus; }
+    public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+
+    public String getBusinessRegistrationNumber() { return businessRegistrationNumber; }
+    public void setBusinessRegistrationNumber(String businessRegistrationNumber) { this.businessRegistrationNumber = businessRegistrationNumber; }
 
     public Instant getLastSyncedAt() { return lastSyncedAt; }
     public void setLastSyncedAt(Instant lastSyncedAt) { this.lastSyncedAt = lastSyncedAt; }

@@ -13,6 +13,26 @@ import {
   Check,
 } from 'lucide-vue-next'
 
+// 네이버 커머스 솔루션 리다이렉트 처리 (?token=<JWT>)
+const route = useRoute()
+const naverToken = route.query.token as string | undefined
+const naverAuthError = ref('')
+const naverAuthLoading = ref(false)
+
+if (naverToken) {
+  const { naverCommerceLogin } = useAuth()
+  naverAuthLoading.value = true
+
+  naverCommerceLogin(naverToken)
+    .then(() => {
+      navigateTo('/dashboard')
+    })
+    .catch((err: any) => {
+      naverAuthError.value = err?.data?.data?.detail ?? err?.data?.detail ?? '네이버 스토어 연동에 실패했습니다. 다시 시도해주세요.'
+      naverAuthLoading.value = false
+    })
+}
+
 useFadeIn()
 
 const stats = [
@@ -93,6 +113,20 @@ const plans = [
 
 <template>
   <div>
+    <!-- 네이버 커머스 솔루션 연동 로딩/에러 -->
+    <div v-if="naverAuthLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <div class="flex flex-col items-center gap-4">
+        <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p class="text-sm font-medium text-foreground">네이버 스토어 연동 중...</p>
+      </div>
+    </div>
+
+    <div v-if="naverAuthError" class="fixed inset-x-0 top-0 z-50 flex justify-center p-4">
+      <div class="rounded-lg border border-destructive/20 bg-destructive/5 px-6 py-3 text-sm text-destructive shadow-lg">
+        {{ naverAuthError }}
+      </div>
+    </div>
+
     <!-- ===================== Hero ===================== -->
     <section class="py-24 max-md:py-20 pt-20 text-center">
       <div class="mx-auto max-w-6xl px-6">

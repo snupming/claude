@@ -114,7 +114,7 @@ public class AuthService {
                 });
     }
 
-    private AuthResponse createAuthResponse(User user) {
+    AuthResponse createAuthResponse(User user) {
         var accessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
         var refreshTokenValue = jwtProvider.generateRefreshTokenValue();
 

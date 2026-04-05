@@ -7,6 +7,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await fetchUser()
   }
 
+  // 네이버 커머스 솔루션 리다이렉트: /?token=... 은 index.vue에서 처리
+  if (to.path === '/' && to.query.token) {
+    return
+  }
+
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/terms', '/privacy']
   const isPublicPath = publicPaths.includes(to.path) || to.path.startsWith('/blog')
 

@@ -56,6 +56,19 @@ export function useAuth() {
     return data.value
   }
 
+  async function naverCommerceLogin(token: string) {
+    const data = await $fetch<{ user: UserInfo }>('/api/auth/naver-commerce', {
+      method: 'POST',
+      body: { token },
+    })
+
+    if (data?.user) {
+      user.value = data.user
+    }
+
+    return data
+  }
+
   async function logout() {
     try {
       await $fetch('/api/auth/logout', { method: 'POST' })
@@ -100,6 +113,7 @@ export function useAuth() {
     isLoggedIn,
     login,
     signup,
+    naverCommerceLogin,
     logout,
     fetchUser,
     refreshToken,

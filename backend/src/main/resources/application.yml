@@ -56,6 +56,8 @@ ownpic:
   naver:
     client-id: ${NAVER_CLIENT_ID:mFs16l2rir71yzSBOlXE}
     client-secret: ${NAVER_CLIENT_SECRET:5PamyFVcE6}
+  naver-commerce:
+    public-key: ${NAVER_COMMERCE_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArb4OCePM/8qX3iVsTwnLhV8UriFeQLRFFAAurwnuvIh7a4zFzGRw54DW2TvS9ts7sRAZpGFT44VmDMxUxthP7D0ybw9jpsPMq0XjWN3E99I1xAJSg2wNIvscXpWCZ0keu/zqEwJbB1m6C5ZiKG2BFneoNLd29/iqx9LdeT/x9h1gtDirxpSLGYjP8N/Njo+P2+c7d2i8oVqZEitiLw5T7JDG5myh2cBKlvpNXIYEBK39bzdas8rSiecJs2eNLgqRcZlZpO5kBOmmG3g27N2E0W+4ZnNG19KTitZYz+9OI2XH17R5sOjwOmOh9fgcY/1YEEcuYl5JKDdVZHLVkCApqwIDAQAB}
   # Google Cloud Vision API (WebDetection)
   # 활성화: SPRING_PROFILES_ACTIVE에 google 추가
   # 인증 (둘 중 하나):

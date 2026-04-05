@@ -2,6 +2,7 @@ package com.ownpic.shared.config;
 
 import com.ownpic.auth.jwt.JwtAuthenticationFilter;
 import com.ownpic.auth.jwt.JwtProperties;
+import com.ownpic.auth.naver.NaverCommerceProperties;
 import com.ownpic.shared.dto.ApiPaths;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +23,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class, NaverCommerceProperties.class})
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

@@ -16,11 +16,17 @@ public class User {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 255)
+    @Column(unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false)
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    private AuthProvider authProvider = AuthProvider.EMAIL;
+
+    @Column(name = "naver_account_uid", unique = true, length = 100)
+    private String naverAccountUid;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -71,6 +77,12 @@ public class User {
 
     public int getImagesUsed() { return imagesUsed; }
     public void setImagesUsed(int imagesUsed) { this.imagesUsed = imagesUsed; }
+
+    public AuthProvider getAuthProvider() { return authProvider; }
+    public void setAuthProvider(AuthProvider authProvider) { this.authProvider = authProvider; }
+
+    public String getNaverAccountUid() { return naverAccountUid; }
+    public void setNaverAccountUid(String naverAccountUid) { this.naverAccountUid = naverAccountUid; }
 
     public Long getInternalId() { return internalId; }
 
