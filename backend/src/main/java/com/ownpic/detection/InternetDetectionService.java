@@ -96,29 +96,7 @@ public class InternetDetectionService {
             return;
         }
         try {
-            String profileDir = System.getProperty("user.home")
-                    + java.io.File.separator + ".ownpic-chrome-profile";
-
-            ChromeOptions options = new ChromeOptions();
-            options.addArguments(
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",
-                    "--lang=ko-KR",
-                    "--window-size=1920,1080",
-                    "--user-data-dir=" + profileDir,
-                    "--remote-debugging-port=0"
-            );
-            options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
-            options.setExperimentalOption("useAutomationExtension", false);
-
-            driver = new ChromeDriver(options);
-            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-
-            // navigator.webdriver 감지 방지
-            ((JavascriptExecutor) driver).executeScript(
-                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
+            initChromeDriver();
 
             // 네이버 로그인 상태 확인
             driver.get("https://nid.naver.com/nidlogin.login");
@@ -131,11 +109,64 @@ public class InternetDetectionService {
                 loggedIn = true;
                 log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
             }
-
-            log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir={})", profileDir);
         } catch (Exception e) {
             log.warn("[Selenium] 초기화 실패: {}", e.getMessage());
             seleniumEnabled = false;
+        }
+    }
+
+    /**
+     * ChromeDriver 인스턴스 생성. initSelenium()과 getOrRecreateDriver()에서 호출.
+     */
+    private void initChromeDriver() {
+        String profileDir = System.getProperty("user.home")
+                + java.io.File.separator + ".ownpic-chrome-profile";
+
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments(
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-blink-features=AutomationControlled",
+                "--lang=ko-KR",
+                "--window-size=1920,1080",
+                "--user-data-dir=" + profileDir,
+                "--remote-debugging-port=0"
+        );
+        options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
+        options.setExperimentalOption("useAutomationExtension", false);
+
+        driver = new ChromeDriver(options);
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+
+        // navigator.webdriver 감지 방지
+        ((JavascriptExecutor) driver).executeScript(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
+
+        log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir={})", profileDir);
+    }
+
+    /**
+     * 세션 유효성 검사 후 드라이버 반환. 세션 무효 시 자동 재생성.
+     */
+    private synchronized WebDriver getOrRecreateDriver() {
+        if (driver != null) {
+            try {
+                driver.getWindowHandles(); // 세션 살아있는지 확인
+                return driver;
+            } catch (Exception e) {
+                log.warn("[Selenium] 세션 무효 — 재생성 시도: {}", e.getMessage());
+                try { driver.quit(); } catch (Exception ignored) {}
+                driver = null;
+            }
+        }
+        try {
+            initChromeDriver();
+            return driver;
+        } catch (Exception e) {
+            log.error("[Selenium] 재생성 실패: {}", e.getMessage());
+            seleniumEnabled = false;
+            return null;
         }
     }
 
@@ -440,24 +471,45 @@ public class InternetDetectionService {
      */
     private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
         if (pageUrl == null || pageUrl.isBlank()) return;
-        if (driver == null || !seleniumEnabled) {
+        if (!seleniumEnabled) {
             log.info("[SellerInfo] Selenium 비활성 — 스킵: {}", pageUrl);
             return;
         }
+        WebDriver d = getOrRecreateDriver();
+        if (d == null) {
+            log.info("[SellerInfo] 드라이버 생성 실패 — 스킵: {}", pageUrl);
+            return;
+        }
         try {
-            URI uri = URI.create(pageUrl);
-            String host = uri.getHost();
-            if (host != null && host.contains("smartstore.naver.com")) {
-                extractSmartStoreSellerInfo(pageUrl, result);
-            } else if (host != null && host.contains("gmarket.co.kr")) {
-                extractGmarketSellerInfo(pageUrl, result);
-            } else if (host != null && host.contains("coupang.com")) {
-                extractCoupangSellerInfo(pageUrl, result);
-            } else {
-                extractSellerInfoFromFooter(pageUrl, result);
+            dispatchSellerExtraction(pageUrl, result);
+        } catch (org.openqa.selenium.NoSuchSessionException e) {
+            log.warn("[SellerInfo] 세션 무효 — 드라이버 재생성 후 재시도: {}", pageUrl);
+            WebDriver retryDriver = getOrRecreateDriver();
+            if (retryDriver == null) {
+                log.error("[SellerInfo] 재시도 실패 — 드라이버 재생성 불가: {}", pageUrl);
+                return;
+            }
+            try {
+                dispatchSellerExtraction(pageUrl, result);
+            } catch (Exception retryEx) {
+                log.warn("[SellerInfo] 재시도 파싱 실패: {} — {}", pageUrl, retryEx.getMessage());
             }
         } catch (Exception e) {
             log.warn("[SellerInfo] 파싱 실패: {} — {}", pageUrl, e.getMessage());
+        }
+    }
+
+    private void dispatchSellerExtraction(String pageUrl, InternetDetectionResult result) throws Exception {
+        URI uri = URI.create(pageUrl);
+        String host = uri.getHost();
+        if (host != null && host.contains("smartstore.naver.com")) {
+            extractSmartStoreSellerInfo(pageUrl, result);
+        } else if (host != null && host.contains("gmarket.co.kr")) {
+            extractGmarketSellerInfo(pageUrl, result);
+        } else if (host != null && host.contains("coupang.com")) {
+            extractCoupangSellerInfo(pageUrl, result);
+        } else {
+            extractSellerInfoFromFooter(pageUrl, result);
         }
     }
 
