@@ -461,6 +461,7 @@ public class InternetDetectionService {
      * 스마트스토어: __PRELOADED_STATE__.channel 에서 사업자 정보 추출.
      */
     private void extractSmartStoreSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
+        pageUrl = extractStoreUrl(pageUrl);
         driver.get(pageUrl);
         Thread.sleep(2000);
 
