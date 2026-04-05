@@ -410,8 +410,36 @@ public class InternetDetectionService {
     /**
      * HTTP 리다이렉트를 수동으로 따라가서 최종 URL 반환.
      */
+    /**
+     * 리다이렉트 추적 — Selenium 사용 가능 시 브라우저로, 아니면 HttpClient 폴백.
+     * 네이버 등에서 HttpClient HEAD 요청에 490(봇 차단)을 반환하므로 Selenium 우선.
+     */
     private String resolveRedirectUrl(String originalUrl) {
         if (originalUrl == null || originalUrl.isBlank()) return originalUrl;
+
+        // Selenium이 사용 가능하면 브라우저로 리다이렉트 추적
+        if (seleniumEnabled) {
+            WebDriver d = getOrRecreateDriver();
+            if (d != null) {
+                try {
+                    d.get(originalUrl);
+                    Thread.sleep(2000);
+                    String finalUrl = d.getCurrentUrl();
+                    if (!originalUrl.equals(finalUrl)) {
+                        log.info("[Redirect:Selenium] {} → {}", originalUrl, finalUrl);
+                    }
+                    return finalUrl;
+                } catch (Exception e) {
+                    log.warn("[Redirect:Selenium] 실패, HttpClient 폴백: {}", e.getMessage());
+                }
+            }
+        }
+
+        // HttpClient 폴백
+        return resolveRedirectUrlViaHttp(originalUrl);
+    }
+
+    private String resolveRedirectUrlViaHttp(String originalUrl) {
         try {
             HttpClient client = HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NEVER)
@@ -423,7 +451,8 @@ public class InternetDetectionService {
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(currentUrl))
                         .timeout(Duration.ofSeconds(5))
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                         .method("HEAD", HttpRequest.BodyPublishers.noBody())
                         .build();
 
@@ -433,20 +462,22 @@ public class InternetDetectionService {
                 if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
                     String location = response.headers().firstValue("Location").orElse(null);
                     if (location == null) break;
-                    // 상대 경로 처리
                     if (location.startsWith("/")) {
                         URI base = URI.create(currentUrl);
                         location = base.getScheme() + "://" + base.getHost() + location;
                     }
-                    log.info("[Redirect] {} → {} ({})", currentUrl, location, status);
+                    log.info("[Redirect:HTTP] {} → {} ({})", currentUrl, location, status);
                     currentUrl = location;
                 } else {
+                    if (status >= 400) {
+                        log.warn("[Redirect:HTTP] 비정상 응답 {} — URL: {}", status, currentUrl);
+                    }
                     break;
                 }
             }
             return currentUrl;
         } catch (Exception e) {
-            log.warn("[Redirect] 추적 실패: {} — {}", originalUrl, e.getMessage());
+            log.warn("[Redirect:HTTP] 추적 실패: {} — {}", originalUrl, e.getMessage());
             return originalUrl;
         }
     }
