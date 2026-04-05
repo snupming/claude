@@ -69,6 +69,9 @@ public class InternetDetectionResult {
     @Column(name = "mail_order_number", length = 50)
     private String mailOrderNumber;
 
+    @Column(name = "match_count", nullable = false)
+    private int matchCount = 1;
+
     @Column(name = "best_guess_label", length = 200)
     private String bestGuessLabel;
 
@@ -124,6 +127,10 @@ public class InternetDetectionResult {
 
     public String getMailOrderNumber() { return mailOrderNumber; }
     public void setMailOrderNumber(String mailOrderNumber) { this.mailOrderNumber = mailOrderNumber; }
+
+    public int getMatchCount() { return matchCount; }
+    public void setMatchCount(int matchCount) { this.matchCount = matchCount; }
+    public void incrementMatchCount() { this.matchCount++; }
 
     public String getBestGuessLabel() { return bestGuessLabel; }
     public String getDetectedEntity() { return detectedEntity; }

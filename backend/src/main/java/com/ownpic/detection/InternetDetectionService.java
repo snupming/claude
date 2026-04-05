@@ -39,7 +39,9 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -165,6 +167,7 @@ public class InternetDetectionService {
     public void executeInternetScanAsync(Long scanId, List<Image> images) {
         try {
             List<InternetDetectionResult> allResults = new ArrayList<>();
+            Map<String, InternetDetectionResult> seenBizNumbers = new HashMap<>();
             int scannedCount = 0;
 
             for (Image image : images) {
@@ -200,6 +203,17 @@ public class InternetDetectionService {
                         InternetDetectionResult result = processSearchResult(
                                 scanId, image.getId(), sr, sourceSSCD, sourceDINO);
                         if (result != null) {
+                            // 동일 사업자 중복 스킵 — 건수만 증가
+                            String biz = result.getBusinessRegNumber();
+                            if (biz != null && seenBizNumbers.containsKey(biz)) {
+                                seenBizNumbers.get(biz).incrementMatchCount();
+                                log.info("[Scan:{}] 동일 사업자 스킵 — {} ({}건째)",
+                                        scanId, biz, seenBizNumbers.get(biz).getMatchCount());
+                                continue;
+                            }
+                            if (biz != null) {
+                                seenBizNumbers.put(biz, result);
+                            }
                             imageResults.add(result);
                             naverMatches++;
                         }

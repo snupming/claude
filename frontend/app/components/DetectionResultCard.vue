@@ -153,8 +153,11 @@ function handleImageError(e: Event) {
       <div class="mt-3 flex items-start gap-2">
         <Globe class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold">
+          <p class="flex items-center gap-2 text-sm font-semibold">
             {{ result.sellerName || domainFromUrl(result.sourcePageUrl || result.foundImageUrl) || '출처 불명' }}
+            <span v-if="result.matchCount > 1" class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {{ result.matchCount }}건
+            </span>
           </p>
           <p v-if="result.sourcePageUrl" class="truncate text-xs text-muted-foreground">
             {{ domainFromUrl(result.sourcePageUrl) }}

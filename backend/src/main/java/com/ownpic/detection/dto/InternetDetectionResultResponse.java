@@ -24,6 +24,7 @@ public record InternetDetectionResultResponse(
         String contactEmail,
         String storeUrl,
         String mailOrderNumber,
+        int matchCount,
         String bestGuessLabel,
         String detectedEntity
 ) {
@@ -36,7 +37,7 @@ public record InternetDetectionResultResponse(
                 r.getPlatformType(), r.getSellerName(), r.getBusinessRegNumber(),
                 r.getRepresentativeName(), r.getBusinessAddress(),
                 r.getContactPhone(), r.getContactEmail(), r.getStoreUrl(),
-                r.getMailOrderNumber(),
+                r.getMailOrderNumber(), r.getMatchCount(),
                 r.getBestGuessLabel(), r.getDetectedEntity());
     }
 }

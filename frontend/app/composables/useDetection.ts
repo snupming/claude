@@ -40,6 +40,8 @@ export interface InternetDetectionResult {
   contactPhone: string | null
   contactEmail: string | null
   storeUrl: string | null
+  mailOrderNumber: string | null
+  matchCount: number
   bestGuessLabel: string | null
   detectedEntity: string | null
 }
