@@ -10,6 +10,14 @@ function getBackendUrl(): string {
   return useRuntimeConfig().backendUrl as string
 }
 
+/**
+ * 동적 값을 URL path 에 안전하게 결합한다.
+ * server/api/* 에서 라우트 파라미터(id, path 등)를 백엔드 URL 에 보간할 때 반드시 사용.
+ */
+export function safeJoin(...segments: (string | number)[]): string {
+  return segments.map(s => encodeURIComponent(String(s))).join('/')
+}
+
 export async function backendFetch<T>(path: string, options: BackendRequestOptions = {}): Promise<T> {
   const url = `${getBackendUrl()}${path}`
 
