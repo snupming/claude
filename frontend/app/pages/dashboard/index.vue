@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Shield, Images, ScanLine, TrendingUp, Store, Plus, ExternalLink } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
+import { extractErrorMessage } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -122,8 +123,9 @@ async function connectStore(platformId: string) {
     })
     await fetchStores()
     showStoreDialog.value = false
-  } catch (err: any) {
-    // 이미 연동된 경우 등
+  } catch (err: unknown) {
+    // 이미 연동된 경우 등 — 백엔드가 409 등을 돌려주며, 조용히 무시한다.
+    console.warn('[connectStore] failed:', extractErrorMessage(err) ?? err)
   } finally {
     isConnecting.value = false
   }

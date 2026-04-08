@@ -22,7 +22,6 @@
     "app/components/ui/**"
   ],
   "ignoreDependencies": [
-    "tw-animate-css",
     "@nuxt/fonts",
     "vue-router",
     "h3",

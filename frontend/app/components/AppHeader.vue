@@ -16,12 +16,6 @@ const resolvedTheme = computed(() => {
   return theme.value
 })
 
-/* 사용자 이니셜 (아바타 폴백) */
-const userInitial = computed(() => {
-  if (user.value?.name) return user.value.name.charAt(0).toUpperCase()
-  if (user.value?.email) return user.value.email.charAt(0).toUpperCase()
-  return 'U'
-})
 </script>
 
 <template>
