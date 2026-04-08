@@ -11,6 +11,7 @@ import com.ownpic.detection.port.SimilarImageSearchPort.ImageEmbedding;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -27,32 +28,26 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class DetectionService {
 
     private static final Logger log = LoggerFactory.getLogger(DetectionService.class);
 
     private static final int BATCH_SIZE = 10;
-    private static final double SSCD_THRESHOLD = 0.30;
-    private static final double DINO_THRESHOLD = 0.70;
-    private static final double SSCD_MIN_FOR_DINO = 0.15;
+
+    /**
+     * SSCD 논문 기준 threshold:
+     * - 0.75: 90% precision (논문 권장 기본값)
+     * - 0.90: ~99% precision (거의 동일 이미지)
+     * - 0.60: ~70% precision (recall 우선)
+     */
+    private static final double SSCD_THRESHOLD = 0.75;
 
     private final DetectionScanRepository scanRepository;
     private final DetectionResultRepository resultRepository;
     private final InternetDetectionResultRepository internetResultRepository;
     private final ImageRepository imageRepository;
     private final SimilarImageSearchPort searchPort;
-
-    public DetectionService(DetectionScanRepository scanRepository,
-                            DetectionResultRepository resultRepository,
-                            InternetDetectionResultRepository internetResultRepository,
-                            ImageRepository imageRepository,
-                            SimilarImageSearchPort searchPort) {
-        this.scanRepository = scanRepository;
-        this.resultRepository = resultRepository;
-        this.internetResultRepository = internetResultRepository;
-        this.imageRepository = imageRepository;
-        this.searchPort = searchPort;
-    }
 
     @Transactional
     public DetectionScanResponse startScan(UUID userId) {
@@ -76,37 +71,22 @@ public class DetectionService {
             List<DetectionResult> allResults = new ArrayList<>();
             int scannedCount = 0;
 
-            List<List<Image>> chunks = partition(images);
-
-            for (List<Image> chunk : chunks) {
-                // SSCD 배치
-                List<ImageEmbedding> sscdBatch = new ArrayList<>();
+            for (List<Image> chunk : partition(images)) {
+                List<ImageEmbedding> batch = new ArrayList<>();
                 for (Image img : chunk) {
                     float[] emb = bytesToFloats(img.getEmbedding());
-                    if (emb != null) sscdBatch.add(new ImageEmbedding(img.getId(), emb));
+                    if (emb != null) batch.add(new ImageEmbedding(img.getId(), emb));
                 }
-                List<BatchResult> sscdMatches = sscdBatch.isEmpty()
-                        ? List.of()
-                        : searchPort.findAllBatch(sscdBatch, SSCD_MIN_FOR_DINO, 20);
 
-                // DINOv2 배치
-                List<ImageEmbedding> dinoBatch = new ArrayList<>();
-                for (Image img : chunk) {
-                    float[] emb = bytesToFloats(img.getEmbeddingDino());
-                    if (emb != null) dinoBatch.add(new ImageEmbedding(img.getId(), emb));
+                if (!batch.isEmpty()) {
+                    List<BatchResult> matches = searchPort.findAllBatch(batch, SSCD_THRESHOLD, 20);
+                    collectResults(scanId, userId, matches, allResults);
                 }
-                List<BatchResult> dinoMatches = dinoBatch.isEmpty()
-                        ? List.of()
-                        : searchPort.findAllDinoBatch(dinoBatch, DINO_THRESHOLD, 20);
-
-                // 병합 + 판정
-                mergeAndJudge(scanId, userId, sscdMatches, dinoMatches, allResults);
 
                 scannedCount += chunk.size();
                 updateProgress(scanId, scannedCount);
             }
 
-            // 결과 벌크 저장
             resultRepository.saveAll(allResults);
             completeScan(scanId, allResults.size());
 
@@ -118,27 +98,18 @@ public class DetectionService {
         }
     }
 
-    private void mergeAndJudge(Long scanId, UUID userId,
-                                List<BatchResult> sscdMatches, List<BatchResult> dinoMatches,
+    private void collectResults(Long scanId, UUID userId,
+                                List<BatchResult> matches,
                                 List<DetectionResult> results) {
-        // 매칭 쌍별로 최고 유사도 수집
-        // key: "sourceId:matchedId"
-        Map<String, double[]> pairScores = new LinkedHashMap<>();
+        // 쌍별 최고 유사도 수집
+        Map<String, Double> pairScores = new LinkedHashMap<>();
         Map<String, UUID> pairUsers = new HashMap<>();
 
-        for (BatchResult m : sscdMatches) {
-            if (m.matchedUserId().equals(userId)) continue; // 같은 유저 제외
-            String key = m.sourceImageId() + ":" + m.matchedImageId();
-            pairScores.computeIfAbsent(key, _ -> new double[]{0, 0})[0] =
-                    Math.max(pairScores.getOrDefault(key, new double[]{0, 0})[0], m.similarity());
-            pairUsers.put(key, m.matchedUserId());
-        }
-
-        for (BatchResult m : dinoMatches) {
+        for (BatchResult m : matches) {
             if (m.matchedUserId().equals(userId)) continue;
+
             String key = m.sourceImageId() + ":" + m.matchedImageId();
-            pairScores.computeIfAbsent(key, _ -> new double[]{0, 0})[1] =
-                    Math.max(pairScores.getOrDefault(key, new double[]{0, 0})[1], m.similarity());
+            pairScores.merge(key, m.similarity(), Math::max);
             pairUsers.put(key, m.matchedUserId());
         }
 
@@ -146,25 +117,14 @@ public class DetectionService {
             String[] ids = entry.getKey().split(":");
             long sourceId = Long.parseLong(ids[0]);
             long matchedId = Long.parseLong(ids[1]);
-            if (sourceId == matchedId) continue; // 자기 자신 제외
+            if (sourceId == matchedId) continue;
 
-            double sscd = entry.getValue()[0];
-            double dino = entry.getValue()[1];
+            double sscd = entry.getValue();
 
-            // 듀얼 판정 — SSCD 메인, DINO 보조 (bg_swap 등 변형 탐지)
-            boolean sscdMatch = sscd >= SSCD_THRESHOLD;
-            boolean dinoAssist = sscd >= SSCD_MIN_FOR_DINO && dino >= DINO_THRESHOLD;
-
-            String judgment;
-            if (sscdMatch || dinoAssist) {
-                judgment = "INFRINGEMENT";
-            } else {
-                continue; // threshold 미달은 저장하지 않음
-            }
-
-            results.add(new DetectionResult(scanId, sourceId, matchedId,
-                    pairUsers.get(entry.getKey()), sscd,
-                    dino > 0 ? dino : null, judgment));
+            results.add(new DetectionResult(
+                    scanId, sourceId, matchedId,
+                    pairUsers.get(entry.getKey()),
+                    sscd, null, "INFRINGEMENT"));
         }
     }
 
@@ -226,8 +186,8 @@ public class DetectionService {
 
     private static <T> List<List<T>> partition(List<T> list) {
         List<List<T>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += DetectionService.BATCH_SIZE) {
-            partitions.add(list.subList(i, Math.min(i + DetectionService.BATCH_SIZE, list.size())));
+        for (int i = 0; i < list.size(); i += BATCH_SIZE) {
+            partitions.add(list.subList(i, Math.min(i + BATCH_SIZE, list.size())));
         }
         return partitions;
     }

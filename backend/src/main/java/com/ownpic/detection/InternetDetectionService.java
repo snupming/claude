@@ -7,7 +7,6 @@ import com.ownpic.detection.domain.DetectionScanRepository;
 import com.ownpic.detection.domain.InternetDetectionResult;
 import com.ownpic.detection.domain.InternetDetectionResultRepository;
 import com.ownpic.detection.dto.DetectionScanResponse;
-import com.ownpic.detection.port.DinoEmbeddingPort;
 import com.ownpic.detection.port.ExternalImageDownloadPort;
 import com.ownpic.detection.port.InternetImageSearchPort;
 import com.ownpic.detection.port.InternetImageSearchPort.SearchResult;
@@ -39,9 +38,7 @@ public class InternetDetectionService {
 
     private static final Logger log = LoggerFactory.getLogger(InternetDetectionService.class);
 
-    private static final double SSCD_THRESHOLD = 0.30;
-    private static final double DINO_THRESHOLD = 0.70;
-    private static final double SSCD_MIN_FOR_DINO = 0.15;
+    private static final double SSCD_THRESHOLD = 0.75;
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
     private static final int MAX_SEARCH_RESULTS = 50;
     private static final int MAX_MATCHES_PER_IMAGE = 20;
@@ -53,7 +50,6 @@ public class InternetDetectionService {
     private final InternetImageSearchPort searchPort;
     private final ExternalImageDownloadPort downloadPort;
     private final SscdEmbeddingPort sscdPort;
-    private final DinoEmbeddingPort dinoPort;
     private final ChromeDriver chromeDriver;
 
     @Transactional
@@ -85,21 +81,19 @@ public class InternetDetectionService {
                         scanId, image.getId(), image.getName(), image.getGcsPath());
 
                 float[] sourceSSCD = bytesToFloats(image.getEmbedding());
-                float[] sourceDINO = bytesToFloats(image.getEmbeddingDino());
-                log.info("[Scan:{}] 이미지 {} 임베딩 — SSCD={}, DINO={}",
+                log.info("[Scan:{}] 이미지 {} 임베딩 — SSCD={}",
                         scanId, image.getId(),
-                        sourceSSCD != null ? sourceSSCD.length + "dim" : "null",
-                        sourceDINO != null ? sourceDINO.length + "dim" : "null");
+                        sourceSSCD != null ? sourceSSCD.length + "dim" : "null");
 
                 List<InternetDetectionResult> imageResults = new ArrayList<>();
                 String keyword = image.getKeywords() == null ? image.getName() : image.getKeywords();
 
-                // 1단계: 네이버 키워드 검색 (키워드가 있을 때만)
                 log.info("[Scan:{}] 이미지 {} 키워드 — '{}'", scanId, image.getId(), keyword);
 
                 if (keyword != null && !keyword.isBlank()) {
                     List<SearchResult> keywordResults = searchPort.searchByKeyword(keyword, MAX_SEARCH_RESULTS);
-                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견 (keyword='{}')", scanId, image.getId(), keywordResults.size(), keyword);
+                    log.info("[Scan:{}] 이미지 {} 네이버 검색 — {}건 발견 (keyword='{}')",
+                            scanId, image.getId(), keywordResults.size(), keyword);
                     for (int i = 0; i < Math.min(5, keywordResults.size()); i++) {
                         var sr = keywordResults.get(i);
                         log.info("[Scan:{}] 이미지 {} 네이버 결과[{}] — img={} page={} title={}",
@@ -111,9 +105,8 @@ public class InternetDetectionService {
                     int naverMatches = 0;
                     for (SearchResult sr : keywordResults) {
                         InternetDetectionResult result = processSearchResult(
-                                scanId, image.getId(), sr, sourceSSCD, sourceDINO);
+                                scanId, image.getId(), sr, sourceSSCD);
                         if (result != null) {
-                            // 동일 사업자 중복 스킵 — 건수만 증가
                             String biz = result.getBusinessRegNumber();
                             if (biz != null && seenBizNumbers.containsKey(biz)) {
                                 seenBizNumbers.get(biz).incrementMatchCount();
@@ -128,12 +121,12 @@ public class InternetDetectionService {
                             naverMatches++;
                         }
                     }
-                    log.info("[Scan:{}] 이미지 {} 네이버 매칭 — {}건 (임계값 통과)", scanId, image.getId(), naverMatches);
+                    log.info("[Scan:{}] 이미지 {} 네이버 매칭 — {}건 (임계값 통과)",
+                            scanId, image.getId(), naverMatches);
                 } else {
                     log.info("[Scan:{}] 이미지 {} 키워드 없음 — 네이버 검색 스킵", scanId, image.getId());
                 }
 
-                // SSCD 스코어 높은 순 정렬 → 상위 20개만 유지
                 imageResults.sort((a, b) -> {
                     double scoreA = a.getSscdSimilarity() != null ? a.getSscdSimilarity() : 0;
                     double scoreB = b.getSscdSimilarity() != null ? b.getSscdSimilarity() : 0;
@@ -151,7 +144,6 @@ public class InternetDetectionService {
             }
 
             resultRepository.saveAll(allResults);
-
             completeScan(scanId, allResults.size());
 
             log.info("[Scan:{}] ===== 스캔 완료 ===== {}개 이미지 검사, {}건 도용 의심",
@@ -164,22 +156,18 @@ public class InternetDetectionService {
 
     private InternetDetectionResult processSearchResult(
             Long scanId, Long sourceImageId, SearchResult sr,
-            float[] sourceSSCD, float[] sourceDINO) throws Exception {
+            float[] sourceSSCD) throws Exception {
 
-        // 1. 외부 이미지 다운로드
-        log.info("[Scan:{}][{}] 다운로드 시도: {}", scanId, "NAVER", sr.imageUrl());
+        log.info("[Scan:{}][NAVER] 다운로드 시도: {}", scanId, sr.imageUrl());
         byte[] foundBytes = downloadPort.download(sr.imageUrl(), DOWNLOAD_TIMEOUT_MS);
         if (foundBytes == null) {
-            log.info("[Scan:{}][{}] 다운로드 실패: {}", scanId, "NAVER", sr.imageUrl());
+            log.info("[Scan:{}][NAVER] 다운로드 실패: {}", scanId, sr.imageUrl());
             return null;
         }
-        log.info("[Scan:{}][{}] 다운로드 완료: {}KB — pageUrl={}, title={}",
-                scanId, "NAVER", foundBytes.length / 1024, sr.sourcePageUrl(), sr.title());
+        log.info("[Scan:{}][NAVER] 다운로드 완료: {}KB — pageUrl={}, title={}",
+                scanId, foundBytes.length / 1024, sr.sourcePageUrl(), sr.title());
 
-        // 2. 임베딩 생성 + 코사인 유사도 비교
         Double sscdSim = null;
-        Double dinoSim = null;
-
         try {
             if (sourceSSCD != null) {
                 float[] foundSSCD = sscdPort.generateEmbedding(foundBytes);
@@ -187,39 +175,25 @@ public class InternetDetectionService {
                     sscdSim = cosineSimilarity(sourceSSCD, foundSSCD);
                 }
             }
-
-            if (sourceDINO != null) {
-                float[] foundDINO = dinoPort.generateEmbedding(foundBytes);
-                if (foundDINO != null) {
-                    dinoSim = cosineSimilarity(sourceDINO, foundDINO);
-                }
-            }
         } catch (Exception e) {
-            log.info("[Scan:{}][{}] 임베딩 실패: {} — {}", scanId, "NAVER", sr.imageUrl(), e.getMessage());
+            log.info("[Scan:{}][NAVER] 임베딩 실패: {} — {}", scanId, sr.imageUrl(), e.getMessage());
             return null;
         }
 
-        // 3. 듀얼 판정 — SSCD 메인, DINO 보조 (bg_swap 등 변형 탐지)
-        boolean sscdMatch = sscdSim != null && sscdSim >= SSCD_THRESHOLD;
-        boolean dinoAssist = sscdSim != null && sscdSim >= SSCD_MIN_FOR_DINO
-                && dinoSim != null && dinoSim >= DINO_THRESHOLD;
-
-        String sscdStr = sscdSim != null ? String.format("%.1f%%", sscdSim * 100) : "null";
-        String dinoStr = dinoSim != null ? String.format("%.1f%%", dinoSim * 100) : "null";
-
-        if (!sscdMatch && !dinoAssist) {
-            log.info("[Scan:{}][{}] 임계값 미달 — SSCD={} DINO={} — {}",
-                    scanId, "NAVER", sscdStr, dinoStr, sr.imageUrl());
-            return null; // 임계값 미달 → 스킵
+        if (sscdSim == null || sscdSim < SSCD_THRESHOLD) {
+            log.info("[Scan:{}][NAVER] 임계값 미달 — SSCD={} — {}",
+                    scanId,
+                    sscdSim != null ? String.format("%.1f%%", sscdSim * 100) : "null",
+                    sr.imageUrl());
+            return null;
         }
 
-        log.info("[Scan:{}][{}] ★ 도용 의심 — SSCD={} DINO={} — imgUrl={} pageUrl={} title={}",
-                scanId, "NAVER", sscdStr, dinoStr,
+        log.info("[Scan:{}][NAVER] ★ 도용 의심 — SSCD={} — imgUrl={} pageUrl={} title={}",
+                scanId, String.format("%.1f%%", sscdSim * 100),
                 sr.imageUrl(),
                 sr.sourcePageUrl() != null ? sr.sourcePageUrl() : "(없음)",
                 sr.title() != null ? sr.title() : "(없음)");
 
-        // 4. 리다이렉트 추적 + 판매자 정보 추출
         String resolvedUrl = resolveRedirectUrl(sr.sourcePageUrl());
         if (resolvedUrl != null && !resolvedUrl.equals(sr.sourcePageUrl())) {
             log.info("[Scan:{}] 리다이렉트: {} → {}", scanId, sr.sourcePageUrl(), resolvedUrl);
@@ -229,7 +203,7 @@ public class InternetDetectionService {
         var result = new InternetDetectionResult(
                 scanId, sourceImageId,
                 sr.imageUrl(), finalPageUrl, sr.title(),
-                sscdSim, dinoSim, "INFRINGEMENT", "NAVER");
+                sscdSim, null, "INFRINGEMENT", "NAVER");
 
         dispatchSellerExtraction(finalPageUrl, result);
 
@@ -286,14 +260,8 @@ public class InternetDetectionService {
         return result;
     }
 
-    /**
-     * HTTP 리다이렉트를 수동으로 따라가서 최종 URL 반환.
-     * 리다이렉트 추적 — Selenium 사용 가능 시 브라우저로, 아니면 HttpClient 폴백.
-     * 네이버 등에서 HttpClient HEAD 요청에 490(봇 차단)을 반환하므로 Selenium 우선.
-     */
     private String resolveRedirectUrl(String originalUrl) {
         if (originalUrl == null || originalUrl.isBlank()) return originalUrl;
-        // Selenium이 사용 가능하면 브라우저로 리다이렉트 추적
         try {
             chromeDriver.get(originalUrl);
             String finalUrl = chromeDriver.getCurrentUrl();
@@ -304,11 +272,9 @@ public class InternetDetectionService {
         } catch (Exception e) {
             log.warn("[Redirect:Selenium] 실패, HttpClient 폴백: {}", e.getMessage());
         }
-
         return originalUrl;
     }
 
-    // footer 파싱용 정규식
     private static final Pattern BIZ_NUMBER_PAT = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
     private static final Pattern REPRESENTATIVE_PAT = Pattern.compile(
             "대표[자][이사]?\\s*[：:.)]?\\s*([가-힣]{2,4})");
@@ -323,12 +289,10 @@ public class InternetDetectionService {
     private static final Pattern PHONE_PAT = Pattern.compile(
             "(0\\d{1,2}[-.)\\s]\\d{3,4}[-.)\\s]\\d{4})");
 
-
     private void dispatchSellerExtraction(String pageUrl, InternetDetectionResult result) throws Exception {
         URI uri = URI.create(pageUrl);
         String host = uri.getHost();
         if (host != null && host.contains("smartstore.naver.com")) {
-
             extractSmartStoreSellerInfo(pageUrl, result);
         } else if (host != null && host.contains("gmarket.co.kr")) {
             extractGmarketSellerInfo(pageUrl, result);
@@ -339,14 +303,11 @@ public class InternetDetectionService {
         }
     }
 
-    /**
-     * 스마트스토어: __PRELOADED_STATE__.channel 에서 사업자 정보 추출.
-     */
     private void extractSmartStoreSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
         chromeDriver.get(extractStoreUrl(pageUrl));
         Object channelObj = chromeDriver.executeScript(
                 "return window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.channel " +
-                "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
+                        "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
         if (channelObj == null) {
             log.info("[SellerInfo] __PRELOADED_STATE__.channel 없음: {}", pageUrl);
             return;
@@ -374,25 +335,20 @@ public class InternetDetectionService {
         }
     }
 
-    /**
-     * 일반 쇼핑몰: 도메인 루트 접속 → footer 영역에서 사업자 정보 정규식 파싱.
-     */
     private void extractSellerInfoFromFooter(String pageUrl, InternetDetectionResult result) {
-        // 도메인 루트 URL 추출
         URI uri = URI.create(pageUrl);
         String rootUrl = uri.getScheme() + "://" + uri.getHost();
 
         chromeDriver.get(rootUrl);
 
-        // footer 영역 텍스트 추출 (여러 셀렉터 시도)
         Object footerObj = chromeDriver.executeScript(
                 "var selectors = ['footer', '.shop-info', '#footer', '.footer', " +
-                "'[class*=footer]', '[class*=Footer]', '[id*=footer]'];" +
-                "for (var i = 0; i < selectors.length; i++) {" +
-                "  var el = document.querySelector(selectors[i]);" +
-                "  if (el && el.innerText && el.innerText.length > 30) return el.innerText;" +
-                "}" +
-                "return null;");
+                        "'[class*=footer]', '[class*=Footer]', '[id*=footer]'];" +
+                        "for (var i = 0; i < selectors.length; i++) {" +
+                        "  var el = document.querySelector(selectors[i]);" +
+                        "  if (el && el.innerText && el.innerText.length > 30) return el.innerText;" +
+                        "}" +
+                        "return null;");
 
         if (footerObj == null) {
             log.info("[SellerInfo] footer 없음: {}", rootUrl);
@@ -403,7 +359,6 @@ public class InternetDetectionService {
         log.info("[SellerInfo] footer 텍스트 ({}자): {}", footerText.length(),
                 footerText.length() > 200 ? footerText.substring(0, 200) + "..." : footerText);
 
-        // 정규식으로 사업자 정보 파싱
         String bizNumber = extractFirst(BIZ_NUMBER_PAT, footerText);
         String representative = extractFirst(REPRESENTATIVE_PAT, footerText);
         String companyName = extractFirst(COMPANY_NAME_PAT, footerText);
@@ -432,9 +387,6 @@ public class InternetDetectionService {
         }
     }
 
-    /**
-     * 지마켓: window.goods.seller JSON에서 판매자 정보 추출.
-     */
     private void extractGmarketSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
         chromeDriver.get(pageUrl);
 
@@ -471,29 +423,24 @@ public class InternetDetectionService {
         }
     }
 
-    /**
-     * 쿠팡: .product-seller 테이블에서 판매자 정보 추출.
-     */
     private void extractCoupangSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
         chromeDriver.get(pageUrl);
 
-        // 페이지 끝까지 스크롤 (판매자 정보가 하단에 있음)
         chromeDriver.executeScript("window.scrollTo(0, document.body.scrollHeight)");
 
-        // .product-seller 영역의 th/td 쌍을 JSON으로 추출
         Object sellerObj = chromeDriver.executeScript(
                 "var el = document.querySelector('.product-seller, .product-item__table.product-seller');" +
-                "if (!el) return null;" +
-                "var data = {};" +
-                "var rows = el.querySelectorAll('tr');" +
-                "for (var i = 0; i < rows.length; i++) {" +
-                "  var ths = rows[i].querySelectorAll('th');" +
-                "  var tds = rows[i].querySelectorAll('td');" +
-                "  for (var j = 0; j < ths.length && j < tds.length; j++) {" +
-                "    data[ths[j].innerText.trim()] = tds[j].innerText.trim();" +
-                "  }" +
-                "}" +
-                "return JSON.stringify(data);");
+                        "if (!el) return null;" +
+                        "var data = {};" +
+                        "var rows = el.querySelectorAll('tr');" +
+                        "for (var i = 0; i < rows.length; i++) {" +
+                        "  var ths = rows[i].querySelectorAll('th');" +
+                        "  var tds = rows[i].querySelectorAll('td');" +
+                        "  for (var j = 0; j < ths.length && j < tds.length; j++) {" +
+                        "    data[ths[j].innerText.trim()] = tds[j].innerText.trim();" +
+                        "  }" +
+                        "}" +
+                        "return JSON.stringify(data);");
 
         if (sellerObj == null) {
             log.info("[SellerInfo] 쿠팡 .product-seller 없음: {}", pageUrl);
@@ -502,7 +449,6 @@ public class InternetDetectionService {
 
         JsonNode data = objectMapper.readTree(sellerObj.toString());
 
-        // "상호/대표자" → 슬래시로 분리
         String companyAndRep = data.has("상호/대표자") ? data.get("상호/대표자").asText() : null;
         String companyName = null, representative = null;
         if (companyAndRep != null && companyAndRep.contains("/")) {
@@ -540,9 +486,6 @@ public class InternetDetectionService {
         return m.find() ? m.group(1).trim() : null;
     }
 
-    /**
-     * JSON 트리에서 특정 필드명을 재귀 탐색.
-     */
     private static String findJsonValue(JsonNode node, String fieldName) {
         if (node == null) return null;
         if (node.has(fieldName) && node.get(fieldName).isTextual()) {
@@ -555,9 +498,6 @@ public class InternetDetectionService {
         return null;
     }
 
-    /**
-     * JSON 트리에서 parentField 아래의 childField 값을 재귀 탐색.
-     */
     private static String findNestedJsonValue(JsonNode node, String parentField, String childField) {
         if (node == null) return null;
         if (node.has(parentField) && node.get(parentField).isObject()) {
@@ -573,9 +513,6 @@ public class InternetDetectionService {
         return null;
     }
 
-    /**
-     * 사업자번호 포맷: "1858100504" → "185-81-00504"
-     */
     private static String formatBizNumber(String raw) {
         if (raw == null) return null;
         String digits = raw.replaceAll("[^0-9]", "");
@@ -585,10 +522,6 @@ public class InternetDetectionService {
         return raw;
     }
 
-    /**
-     * 스마트스토어 URL에서 스토어 메인 URL 추출.
-     * smartstore.naver.com/lovbong/products/123 → smartstore.naver.com/lovbong
-     */
     private static String extractStoreUrl(String pageUrl) {
         if (pageUrl == null) return null;
         try {
