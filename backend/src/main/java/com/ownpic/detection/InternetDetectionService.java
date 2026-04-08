@@ -15,15 +15,10 @@ import com.ownpic.detection.port.SscdEmbeddingPort;
 import com.ownpic.image.domain.Image;
 import com.ownpic.image.domain.ImageRepository;
 import com.ownpic.image.domain.ImageStatus;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
+import lombok.RequiredArgsConstructor;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -32,21 +27,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
+@RequiredArgsConstructor
 public class InternetDetectionService {
 
     private static final Logger log = LoggerFactory.getLogger(InternetDetectionService.class);
@@ -66,116 +54,7 @@ public class InternetDetectionService {
     private final ExternalImageDownloadPort downloadPort;
     private final SscdEmbeddingPort sscdPort;
     private final DinoEmbeddingPort dinoPort;
-
-    @Value("${ownpic.google.selenium-enabled:true}")
-    private boolean seleniumEnabled;
-
-    private WebDriver driver;
-    private boolean loggedIn = false;
-
-    public InternetDetectionService(DetectionScanRepository scanRepository,
-                                    InternetDetectionResultRepository resultRepository,
-                                    ImageRepository imageRepository,
-                                    InternetImageSearchPort searchPort,
-                                    ExternalImageDownloadPort downloadPort,
-                                    SscdEmbeddingPort sscdPort,
-                                    DinoEmbeddingPort dinoPort) {
-        this.scanRepository = scanRepository;
-        this.resultRepository = resultRepository;
-        this.imageRepository = imageRepository;
-        this.searchPort = searchPort;
-        this.downloadPort = downloadPort;
-        this.sscdPort = sscdPort;
-        this.dinoPort = dinoPort;
-    }
-
-    @PostConstruct
-    public void initSelenium() {
-        if (!seleniumEnabled) {
-            log.info("[Selenium] 비활성 — ownpic.google.selenium-enabled=false");
-            return;
-        }
-        try {
-            initChromeDriver();
-
-            // 네이버 로그인 상태 확인
-            driver.get("https://nid.naver.com/nidlogin.login");
-            Thread.sleep(2000);
-            String currentUrl = driver.getCurrentUrl();
-            if (currentUrl.contains("nidlogin")) {
-                log.warn("[Selenium] 네이버 미로그인 상태 — chrome-profile에서 수동 로그인 필요");
-                log.warn("[Selenium] headless 제거 후 수동 로그인하면 세션이 chrome-profile에 저장됩니다");
-            } else {
-                loggedIn = true;
-                log.info("[Selenium] 네이버 로그인 세션 확인 — 로그인 상태 유지중");
-            }
-        } catch (Exception e) {
-            log.warn("[Selenium] 초기화 실패: {}", e.getMessage());
-            seleniumEnabled = false;
-        }
-    }
-
-    /**
-     * ChromeDriver 인스턴스 생성. initSelenium()과 getOrRecreateDriver()에서 호출.
-     */
-    private void initChromeDriver() {
-        String profileDir = System.getProperty("user.home")
-                + java.io.File.separator + ".ownpic-chrome-profile";
-
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments(
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--disable-blink-features=AutomationControlled",
-                "--lang=ko-KR",
-                "--window-size=1920,1080",
-                "--user-data-dir=" + profileDir,
-                "--remote-debugging-port=0"
-        );
-        options.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
-        options.setExperimentalOption("useAutomationExtension", false);
-
-        driver = new ChromeDriver(options);
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-
-        // navigator.webdriver 감지 방지
-        ((JavascriptExecutor) driver).executeScript(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
-
-        log.info("[Selenium] Chrome 브라우저 초기화 완료 (user-data-dir={})", profileDir);
-    }
-
-    /**
-     * 세션 유효성 검사 후 드라이버 반환. 세션 무효 시 자동 재생성.
-     */
-    private synchronized WebDriver getOrRecreateDriver() {
-        if (driver != null) {
-            try {
-                driver.getWindowHandles(); // 세션 살아있는지 확인
-                return driver;
-            } catch (Exception e) {
-                log.warn("[Selenium] 세션 무효 — 재생성 시도: {}", e.getMessage());
-                try { driver.quit(); } catch (Exception ignored) {}
-                driver = null;
-            }
-        }
-        try {
-            initChromeDriver();
-            return driver;
-        } catch (Exception e) {
-            log.error("[Selenium] 재생성 실패: {}", e.getMessage());
-            seleniumEnabled = false;
-            return null;
-        }
-    }
-
-    @PreDestroy
-    public void cleanupSelenium() {
-        if (driver != null) {
-            try { driver.quit(); } catch (Exception ignored) {}
-        }
-    }
+    private final ChromeDriver chromeDriver;
 
     @Transactional
     public DetectionScanResponse startInternetScan(UUID userId) {
@@ -285,7 +164,7 @@ public class InternetDetectionService {
 
     private InternetDetectionResult processSearchResult(
             Long scanId, Long sourceImageId, SearchResult sr,
-            float[] sourceSSCD, float[] sourceDINO) {
+            float[] sourceSSCD, float[] sourceDINO) throws Exception {
 
         // 1. 외부 이미지 다운로드
         log.info("[Scan:{}][{}] 다운로드 시도: {}", scanId, "NAVER", sr.imageUrl());
@@ -352,7 +231,7 @@ public class InternetDetectionService {
                 sr.imageUrl(), finalPageUrl, sr.title(),
                 sscdSim, dinoSim, "INFRINGEMENT", "NAVER");
 
-        extractSellerInfo(finalPageUrl, result);
+        dispatchSellerExtraction(finalPageUrl, result);
 
         return result;
     }
@@ -409,83 +288,30 @@ public class InternetDetectionService {
 
     /**
      * HTTP 리다이렉트를 수동으로 따라가서 최종 URL 반환.
-     */
-    /**
      * 리다이렉트 추적 — Selenium 사용 가능 시 브라우저로, 아니면 HttpClient 폴백.
      * 네이버 등에서 HttpClient HEAD 요청에 490(봇 차단)을 반환하므로 Selenium 우선.
      */
     private String resolveRedirectUrl(String originalUrl) {
         if (originalUrl == null || originalUrl.isBlank()) return originalUrl;
-
         // Selenium이 사용 가능하면 브라우저로 리다이렉트 추적
-        if (seleniumEnabled) {
-            WebDriver d = getOrRecreateDriver();
-            if (d != null) {
-                try {
-                    d.get(originalUrl);
-                    Thread.sleep(2000);
-                    String finalUrl = d.getCurrentUrl();
-                    if (!originalUrl.equals(finalUrl)) {
-                        log.info("[Redirect:Selenium] {} → {}", originalUrl, finalUrl);
-                    }
-                    return finalUrl;
-                } catch (Exception e) {
-                    log.warn("[Redirect:Selenium] 실패, HttpClient 폴백: {}", e.getMessage());
-                }
-            }
-        }
-
-        // HttpClient 폴백
-        return resolveRedirectUrlViaHttp(originalUrl);
-    }
-
-    private String resolveRedirectUrlViaHttp(String originalUrl) {
         try {
-            HttpClient client = HttpClient.newBuilder()
-                    .followRedirects(HttpClient.Redirect.NEVER)
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
-
-            String currentUrl = originalUrl;
-            for (int i = 0; i < 10; i++) {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(currentUrl))
-                        .timeout(Duration.ofSeconds(5))
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                        .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                        .build();
-
-                HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
-                int status = response.statusCode();
-
-                if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
-                    String location = response.headers().firstValue("Location").orElse(null);
-                    if (location == null) break;
-                    if (location.startsWith("/")) {
-                        URI base = URI.create(currentUrl);
-                        location = base.getScheme() + "://" + base.getHost() + location;
-                    }
-                    log.info("[Redirect:HTTP] {} → {} ({})", currentUrl, location, status);
-                    currentUrl = location;
-                } else {
-                    if (status >= 400) {
-                        log.warn("[Redirect:HTTP] 비정상 응답 {} — URL: {}", status, currentUrl);
-                    }
-                    break;
-                }
+            chromeDriver.get(originalUrl);
+            String finalUrl = chromeDriver.getCurrentUrl();
+            if (!originalUrl.equals(finalUrl)) {
+                log.info("[Redirect:Selenium] {} → {}", originalUrl, finalUrl);
             }
-            return currentUrl;
+            return finalUrl;
         } catch (Exception e) {
-            log.warn("[Redirect:HTTP] 추적 실패: {} — {}", originalUrl, e.getMessage());
-            return originalUrl;
+            log.warn("[Redirect:Selenium] 실패, HttpClient 폴백: {}", e.getMessage());
         }
+
+        return originalUrl;
     }
 
     // footer 파싱용 정규식
     private static final Pattern BIZ_NUMBER_PAT = Pattern.compile("(\\d{3}-\\d{2}-\\d{5})");
     private static final Pattern REPRESENTATIVE_PAT = Pattern.compile(
-            "대표[자]?\\s*[：:.)]?\\s*([가-힣]{2,4})");
+            "대표[자][이사]?\\s*[：:.)]?\\s*([가-힣]{2,4})");
     private static final Pattern COMPANY_NAME_PAT = Pattern.compile(
             "(?:회사명|상호[명]?)\\s*[：:.)\\s]\\s*(.+?)(?=\\s{2,}|$)");
     private static final Pattern ADDRESS_PAT = Pattern.compile(
@@ -497,43 +323,12 @@ public class InternetDetectionService {
     private static final Pattern PHONE_PAT = Pattern.compile(
             "(0\\d{1,2}[-.)\\s]\\d{3,4}[-.)\\s]\\d{4})");
 
-    /**
-     * 판매자 정보 추출 — 스마트스토어 vs 일반 쇼핑몰 분기.
-     */
-    private void extractSellerInfo(String pageUrl, InternetDetectionResult result) {
-        if (pageUrl == null || pageUrl.isBlank()) return;
-        if (!seleniumEnabled) {
-            log.info("[SellerInfo] Selenium 비활성 — 스킵: {}", pageUrl);
-            return;
-        }
-        WebDriver d = getOrRecreateDriver();
-        if (d == null) {
-            log.info("[SellerInfo] 드라이버 생성 실패 — 스킵: {}", pageUrl);
-            return;
-        }
-        try {
-            dispatchSellerExtraction(pageUrl, result);
-        } catch (org.openqa.selenium.NoSuchSessionException e) {
-            log.warn("[SellerInfo] 세션 무효 — 드라이버 재생성 후 재시도: {}", pageUrl);
-            WebDriver retryDriver = getOrRecreateDriver();
-            if (retryDriver == null) {
-                log.error("[SellerInfo] 재시도 실패 — 드라이버 재생성 불가: {}", pageUrl);
-                return;
-            }
-            try {
-                dispatchSellerExtraction(pageUrl, result);
-            } catch (Exception retryEx) {
-                log.warn("[SellerInfo] 재시도 파싱 실패: {} — {}", pageUrl, retryEx.getMessage());
-            }
-        } catch (Exception e) {
-            log.warn("[SellerInfo] 파싱 실패: {} — {}", pageUrl, e.getMessage());
-        }
-    }
 
     private void dispatchSellerExtraction(String pageUrl, InternetDetectionResult result) throws Exception {
         URI uri = URI.create(pageUrl);
         String host = uri.getHost();
         if (host != null && host.contains("smartstore.naver.com")) {
+
             extractSmartStoreSellerInfo(pageUrl, result);
         } else if (host != null && host.contains("gmarket.co.kr")) {
             extractGmarketSellerInfo(pageUrl, result);
@@ -548,12 +343,8 @@ public class InternetDetectionService {
      * 스마트스토어: __PRELOADED_STATE__.channel 에서 사업자 정보 추출.
      */
     private void extractSmartStoreSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
-        pageUrl = extractStoreUrl(pageUrl);
-        driver.get(pageUrl);
-        Thread.sleep(2000);
-
-        JavascriptExecutor js = (JavascriptExecutor) driver;
-        Object channelObj = js.executeScript(
+        chromeDriver.get(extractStoreUrl(pageUrl));
+        Object channelObj = chromeDriver.executeScript(
                 "return window.__PRELOADED_STATE__ && window.__PRELOADED_STATE__.channel " +
                 "? JSON.stringify(window.__PRELOADED_STATE__.channel) : null");
         if (channelObj == null) {
@@ -586,17 +377,15 @@ public class InternetDetectionService {
     /**
      * 일반 쇼핑몰: 도메인 루트 접속 → footer 영역에서 사업자 정보 정규식 파싱.
      */
-    private void extractSellerInfoFromFooter(String pageUrl, InternetDetectionResult result) throws Exception {
+    private void extractSellerInfoFromFooter(String pageUrl, InternetDetectionResult result) {
         // 도메인 루트 URL 추출
         URI uri = URI.create(pageUrl);
         String rootUrl = uri.getScheme() + "://" + uri.getHost();
 
-        driver.get(rootUrl);
-        Thread.sleep(2000);
+        chromeDriver.get(rootUrl);
 
         // footer 영역 텍스트 추출 (여러 셀렉터 시도)
-        JavascriptExecutor js = (JavascriptExecutor) driver;
-        Object footerObj = js.executeScript(
+        Object footerObj = chromeDriver.executeScript(
                 "var selectors = ['footer', '.shop-info', '#footer', '.footer', " +
                 "'[class*=footer]', '[class*=Footer]', '[id*=footer]'];" +
                 "for (var i = 0; i < selectors.length; i++) {" +
@@ -647,11 +436,9 @@ public class InternetDetectionService {
      * 지마켓: window.goods.seller JSON에서 판매자 정보 추출.
      */
     private void extractGmarketSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
-        driver.get(pageUrl);
-        Thread.sleep(3000);
+        chromeDriver.get(pageUrl);
 
-        JavascriptExecutor js = (JavascriptExecutor) driver;
-        Object sellerObj = js.executeScript(
+        Object sellerObj = chromeDriver.executeScript(
                 "return window.goods && window.goods.seller ? JSON.stringify(window.goods.seller) : null");
         if (sellerObj == null) {
             log.info("[SellerInfo] 지마켓 goods.seller 없음: {}", pageUrl);
@@ -688,16 +475,13 @@ public class InternetDetectionService {
      * 쿠팡: .product-seller 테이블에서 판매자 정보 추출.
      */
     private void extractCoupangSellerInfo(String pageUrl, InternetDetectionResult result) throws Exception {
-        driver.get(pageUrl);
-        Thread.sleep(3000);
+        chromeDriver.get(pageUrl);
 
         // 페이지 끝까지 스크롤 (판매자 정보가 하단에 있음)
-        JavascriptExecutor js = (JavascriptExecutor) driver;
-        js.executeScript("window.scrollTo(0, document.body.scrollHeight)");
-        Thread.sleep(1500);
+        chromeDriver.executeScript("window.scrollTo(0, document.body.scrollHeight)");
 
         // .product-seller 영역의 th/td 쌍을 JSON으로 추출
-        Object sellerObj = js.executeScript(
+        Object sellerObj = chromeDriver.executeScript(
                 "var el = document.querySelector('.product-seller, .product-item__table.product-seller');" +
                 "if (!el) return null;" +
                 "var data = {};" +
@@ -803,7 +587,7 @@ public class InternetDetectionService {
 
     /**
      * 스마트스토어 URL에서 스토어 메인 URL 추출.
-     * https://smartstore.naver.com/lovbong/products/123 → https://smartstore.naver.com/lovbong
+     * smartstore.naver.com/lovbong/products/123 → smartstore.naver.com/lovbong
      */
     private static String extractStoreUrl(String pageUrl) {
         if (pageUrl == null) return null;

@@ -39,6 +39,7 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     // Flyway (Spring Boot 4는 starter 필수)
+
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
 
@@ -60,7 +61,11 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.4.0")
 
     // Selenium (Google Lens 크롤링 + 판매 페이지 동적 렌더링)
-    implementation("org.seleniumhq.selenium:selenium-java:4.27.0")
+    implementation("org.seleniumhq.selenium:selenium-java:4.41.0")
+
+    implementation("org.projectlombok:lombok:1.18.44")
+    compileOnly("org.projectlombok:lombok:1.18.44")
+    annotationProcessor("org.projectlombok:lombok:1.18.44")
 
     // Dev tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
