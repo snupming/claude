@@ -1,8 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "nuxt.config.ts",
-    "app/app.vue",
     "app/pages/**/*.vue",
     "app/layouts/**/*.vue",
     "app/middleware/**/*.ts",
@@ -11,7 +9,6 @@
     "server/api/**/*.ts",
     "server/plugins/**/*.ts",
     "server/utils/**/*.ts",
-    "vitest.config.ts",
     "**/__tests__/**/*.ts"
   ],
   "project": [

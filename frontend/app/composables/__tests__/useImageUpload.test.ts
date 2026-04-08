@@ -147,7 +147,7 @@ describe('useImageUpload', () => {
   })
 
   it('pendingCount and successCount are computed correctly', () => {
-    const { addFiles, queue, pendingCount, successCount } = useImageUpload()
+    const { addFiles, pendingCount, successCount } = useImageUpload()
     addFiles([
       createMockFile('a.jpg', 1024, 'image/jpeg'),
       createMockFile('b.jpg', 1024, 'image/jpeg'),
