@@ -3,7 +3,12 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
-  modules: ['shadcn-nuxt'],
+  modules: ['shadcn-nuxt', '@nuxt/eslint'],
+
+  typescript: {
+    strict: true,
+    typeCheck: true,
+  },
 
   app: {
     head: {

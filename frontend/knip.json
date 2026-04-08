@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "nuxt.config.ts",
+    "app/app.vue",
+    "app/pages/**/*.vue",
+    "app/layouts/**/*.vue",
+    "app/middleware/**/*.ts",
+    "app/plugins/**/*.ts",
+    "server/api/**/*.ts",
+    "server/plugins/**/*.ts",
+    "server/middleware/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,vue}",
+    "server/**/*.ts"
+  ],
+  "ignore": [
+    ".nuxt/**",
+    ".output/**",
+    "app/components/ui/**"
+  ],
+  "ignoreDependencies": [
+    "tw-animate-css",
+    "tailwindcss",
+    "@tailwindcss/vite"
+  ]
+}
