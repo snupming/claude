@@ -6,24 +6,28 @@
     "app/pages/**/*.vue",
     "app/layouts/**/*.vue",
     "app/middleware/**/*.ts",
-    "app/plugins/**/*.ts",
+    "app/composables/**/*.ts",
+    "app/lib/**/*.ts",
     "server/api/**/*.ts",
     "server/plugins/**/*.ts",
-    "server/middleware/**/*.ts",
-    "vitest.config.ts"
+    "server/utils/**/*.ts",
+    "vitest.config.ts",
+    "**/__tests__/**/*.ts"
   ],
   "project": [
     "app/**/*.{ts,vue}",
     "server/**/*.ts"
   ],
   "ignore": [
-    ".nuxt/**",
-    ".output/**",
     "app/components/ui/**"
   ],
   "ignoreDependencies": [
     "tw-animate-css",
-    "tailwindcss",
-    "@tailwindcss/vite"
+    "@nuxt/fonts",
+    "vue-router",
+    "h3",
+    "eslint-plugin-vue",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser"
   ]
 }
