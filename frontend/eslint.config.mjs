@@ -61,4 +61,23 @@ export default withNuxt(
       'import/order': 'off',
     },
   },
+
+  // === shadcn-vue UI 컴포넌트: class/variant/size 등 optional prop 관용 ===
+  {
+    files: ['app/components/ui/**/*.vue'],
+    rules: {
+      'vue/require-default-prop': 'off',
+    },
+  },
+
+  // === 스타일 경고 (HTML self-closing, attribute order, linebreak) 비활성 ===
+  // 자동 포매팅은 prettier 영역. Vue 3 에서는 <img/> / <img> 모두 유효.
+  {
+    files: ['**/*.vue'],
+    rules: {
+      'vue/html-self-closing': 'off',
+      'vue/first-attribute-linebreak': 'off',
+      'vue/attributes-order': 'off',
+    },
+  },
 )
