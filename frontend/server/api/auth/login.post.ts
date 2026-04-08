@@ -18,8 +18,8 @@ export default defineEventHandler(async (event) => {
       method: 'POST',
       body,
     })
-  } catch (err: any) {
-    if (err?.statusCode) throw err
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'statusCode' in err) throw err
     throw createError({
       statusCode: 503,
       statusMessage: 'Service Unavailable',

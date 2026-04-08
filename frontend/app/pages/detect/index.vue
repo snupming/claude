@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, Globe, ScanLine, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, ExternalLink, FileDown, FileText } from 'lucide-vue-next'
+import { Search, Globe, AlertTriangle, CheckCircle2, Loader2, Clock, ChevronRight, FileDown, FileText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'

@@ -9,7 +9,7 @@ import {
 } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const props = defineProps<{
+defineProps<{
   collapsed: boolean
 }>()
 

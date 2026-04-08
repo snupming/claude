@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Mail, Lock, Eye, EyeOff } from 'lucide-vue-next'
+import { extractErrorMessage } from '@/lib/utils'
 
 definePageMeta({
   layout: false,
@@ -21,9 +22,8 @@ async function handleLogin() {
     await login(email.value, password.value)
     await navigateTo('/dashboard')
   }
-  catch (err: any) {
-    const detail = err?.data?.data?.detail ?? err?.data?.detail
-    errorMessage.value = detail ?? '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.'
+  catch (err: unknown) {
+    errorMessage.value = extractErrorMessage(err) ?? '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.'
   }
   finally {
     isLoading.value = false

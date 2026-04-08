@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Mail, Lock, Eye, EyeOff, User } from 'lucide-vue-next'
+import { extractErrorMessage } from '@/lib/utils'
 
 definePageMeta({
   layout: false,
@@ -39,15 +40,15 @@ async function handleSignup() {
     await signup(name.value, email.value, password.value)
     await navigateTo('/dashboard')
   }
-  catch (err: any) {
-    const statusCode = err?.data?.statusCode ?? err?.statusCode
-    const detail = err?.data?.data?.detail ?? err?.data?.detail
+  catch (err: unknown) {
+    const statusCode = (err as { statusCode?: number, data?: { statusCode?: number } }).data?.statusCode
+      ?? (err as { statusCode?: number }).statusCode
 
     if (statusCode === 409) {
       errorMessage.value = '이미 가입된 이메일입니다. 로그인해주세요.'
     }
     else {
-      errorMessage.value = detail ?? '회원가입에 실패했습니다. 다시 시도해주세요.'
+      errorMessage.value = extractErrorMessage(err) ?? '회원가입에 실패했습니다. 다시 시도해주세요.'
     }
   }
   finally {

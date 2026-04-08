@@ -31,6 +31,9 @@ export default withNuxt(
       'vue/no-ref-as-operand': 'error',
       'vue/no-watch-after-await': 'error',
       'vue/no-async-in-computed-properties': 'error',
+
+      // Vue 3 는 multi-root template 을 지원하므로 Vue 2 규칙 비활성화
+      'vue/no-multiple-template-root': 'off',
     },
   },
 

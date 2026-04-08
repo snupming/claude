@@ -1,3 +1,5 @@
+import { extractErrorMessage } from '@/lib/utils'
+
 export interface UploadItem {
   id: string
   file: File
@@ -67,9 +69,9 @@ export function useImageUpload() {
       })
       item.status = 'success'
       item.progress = 100
-    } catch (err: any) {
+    } catch (err: unknown) {
       item.status = 'error'
-      item.error = err?.data?.data?.detail || err?.data?.statusMessage || '업로드에 실패했습니다.'
+      item.error = extractErrorMessage(err) ?? '업로드에 실패했습니다.'
     }
   }
 
