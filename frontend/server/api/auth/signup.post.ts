@@ -1,5 +1,14 @@
+import { z } from 'zod'
+import { zh } from '~/server/utils/validate'
+
+const SignupBody = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+})
+
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
+  const body = await readValidatedBody(event, zh(SignupBody))
 
   // 1. 회원가입 (토큰 미반환)
   await backendFetch<{

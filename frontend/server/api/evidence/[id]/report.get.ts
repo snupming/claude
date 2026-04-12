@@ -1,6 +1,12 @@
+import { z } from 'zod'
+import { zh } from '~/server/utils/validate'
+
+const RouteParams = z.object({ id: z.coerce.number().int().positive() })
+const FormatQuery = z.object({ format: z.enum(['pdf', 'docx']).default('pdf') })
+
 export default defineEventHandler(async (event) => {
-  const id = getRouterParam(event, 'id')
-  const format = getQuery(event).format === 'docx' ? 'docx' : 'pdf'
+  const { id } = await getValidatedRouterParams(event, zh(RouteParams))
+  const { format } = await getValidatedQuery(event, zh(FormatQuery))
 
   const accessToken = getAccessTokenFromCookie(event)
   if (!accessToken) {
@@ -8,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const backendUrl = useRuntimeConfig().backendUrl as string
-  const response = await fetch(`${backendUrl}/api/v1/evidence/${encodeURIComponent(id ?? '')}/report.${format}`, {
+  const response = await fetch(`${backendUrl}/api/v1/evidence/${encodeURIComponent(id)}/report.${format}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 

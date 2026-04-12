@@ -1,5 +1,13 @@
+import { z } from 'zod'
+import { zh } from '~/server/utils/validate'
+
+const LoginBody = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+})
+
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
+  const body = await readValidatedBody(event, zh(LoginBody))
 
   let data
   try {
