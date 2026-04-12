@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const backendUrl = useRuntimeConfig().backendUrl as string
-  const response = await fetch(`${backendUrl}/api/v1/evidence/${id}/letter.${format}`, {
+  const response = await fetch(`${backendUrl}/api/v1/evidence/${encodeURIComponent(id ?? '')}/letter.${format}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,

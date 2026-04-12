@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const backendUrl = useRuntimeConfig().backendUrl as string
-  const response = await fetch(`${backendUrl}/api/v1/evidence/${id}/report.${format}`, {
+  const response = await fetch(`${backendUrl}/api/v1/evidence/${encodeURIComponent(id ?? '')}/report.${format}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 

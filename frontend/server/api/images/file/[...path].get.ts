@@ -8,7 +8,8 @@ export default defineEventHandler(async (event) => {
 
   const backendUrl = useRuntimeConfig().backendUrl as string
 
-  const response = await fetch(`${backendUrl}/api/v1/images/file/${path}`, {
+  const safePath = (path ?? '').split('/').map(s => encodeURIComponent(s)).join('/')
+  const response = await fetch(`${backendUrl}/api/v1/images/file/${safePath}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
