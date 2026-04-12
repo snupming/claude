@@ -62,10 +62,14 @@ export interface ScansPage {
 
 const POLL_INTERVAL = 2000
 
+// 클라이언트 전용 싱글톤 — 앱 전체에서 하나의 폴링 타이머만 운용.
+// (CLAUDE.md 예외: 클라이언트 전용 런타임 싱글톤은 모듈 레벨 허용)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollInFlight = false
+
 export function useDetection() {
   const activeScan = useState<ScanInfo | null>('active-scan', () => null)
   const isScanning = computed(() => activeScan.value?.status === 'SCANNING' || activeScan.value?.status === 'PENDING')
-  let pollTimer: ReturnType<typeof setInterval> | null = null
 
   async function startScan(): Promise<ScanInfo> {
     const scan = await $fetch<ScanInfo>('/api/detections/scan', { method: 'POST' })
@@ -93,16 +97,23 @@ export function useDetection() {
 
   function startPolling(scanId: number) {
     stopPolling()
-    pollTimer = setInterval(async () => {
-      try {
-        const detail = await fetchScanDetail(scanId)
-        activeScan.value = detail.scan
-        if (detail.scan.status === 'COMPLETED' || detail.scan.status === 'FAILED') {
+    pollTimer = setInterval(() => {
+      if (pollInFlight) return // 이전 요청 완료 대기 — 레이스 방지
+      pollInFlight = true
+      fetchScanDetail(scanId)
+        .then((detail) => {
+          activeScan.value = detail.scan
+          if (detail.scan.status === 'COMPLETED' || detail.scan.status === 'FAILED') {
+            stopPolling()
+          }
+        })
+        .catch((err: unknown) => {
+          console.warn('[useDetection] poll failed:', err)
           stopPolling()
-        }
-      } catch {
-        stopPolling()
-      }
+        })
+        .finally(() => {
+          pollInFlight = false
+        })
     }, POLL_INTERVAL)
   }
 
@@ -111,6 +122,7 @@ export function useDetection() {
       clearInterval(pollTimer)
       pollTimer = null
     }
+    pollInFlight = false
   }
 
   async function resumeIfActive() {
@@ -118,13 +130,13 @@ export function useDetection() {
       const page = await fetchScans(0, 1)
       if (page.content.length > 0) {
         const latest = page.content[0]
-        if (latest.status === 'SCANNING' || latest.status === 'PENDING') {
+        if (latest && (latest.status === 'SCANNING' || latest.status === 'PENDING')) {
           activeScan.value = latest
           startPolling(latest.id)
-        } else if (activeScan.value?.status === 'SCANNING' || activeScan.value?.status === 'PENDING') {
+        } else if (latest && (activeScan.value?.status === 'SCANNING' || activeScan.value?.status === 'PENDING')) {
           // SPA 복귀: stale SCANNING → 실제 COMPLETED/FAILED로 동기화
           activeScan.value = latest
-        } else if (!activeScan.value && latest.completedAt) {
+        } else if (!activeScan.value && latest?.completedAt) {
           // 새로고침 복귀: 최근 완료 스캔이면 배너 표시 (5분 이내)
           const completedAt = new Date(latest.completedAt).getTime()
           if (Date.now() - completedAt < 5 * 60 * 1000) {
@@ -135,8 +147,8 @@ export function useDetection() {
         // 스캔 없으면 stale state 정리
         activeScan.value = null
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      console.warn('[useDetection] resumeIfActive failed:', err)
     }
   }
 
