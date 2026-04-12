@@ -17,51 +17,37 @@ export function useAuth() {
   const { user, isLoggedIn } = useAuthState()
 
   async function login(email: string, password: string) {
-    const { data, error } = await useFetch('/api/auth/login', {
+    const data = await $fetch<{ user: UserInfo }>('/api/auth/login', {
       method: 'POST',
       body: { email, password },
     })
 
-    if (error.value) {
-      throw createError({
-        statusCode: error.value.statusCode,
-        data: error.value.data,
-      })
+    if (data?.user) {
+      user.value = data.user
     }
 
-    if (data.value?.user) {
-      user.value = data.value.user
-    }
-
-    return data.value
+    return data
   }
 
   async function signup(name: string, email: string, password: string) {
-    const { data, error } = await useFetch('/api/auth/signup', {
+    const data = await $fetch<{ user: UserInfo }>('/api/auth/signup', {
       method: 'POST',
       body: { name, email, password },
     })
 
-    if (error.value) {
-      throw createError({
-        statusCode: error.value.statusCode,
-        data: error.value.data,
-      })
+    if (data?.user) {
+      user.value = data.user
     }
 
-    if (data.value?.user) {
-      user.value = data.value.user
-    }
-
-    return data.value
+    return data
   }
 
   async function logout() {
     try {
       await $fetch('/api/auth/logout', { method: 'POST' })
     }
-    catch {
-      // Ignore logout errors
+    catch (err: unknown) {
+      console.warn('[logout] backend call failed, clearing client state:', err)
     }
     finally {
       user.value = null
@@ -83,7 +69,7 @@ export function useAuth() {
 
   async function refreshToken() {
     try {
-      const data = await $fetch('/api/auth/refresh', { method: 'POST' })
+      const data = await $fetch<{ user: UserInfo }>('/api/auth/refresh', { method: 'POST' })
       if (data?.user) {
         user.value = data.user
       }
