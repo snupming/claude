@@ -41,12 +41,15 @@ export function useTheme() {
     theme.value = initial
     applyTheme(initial)
 
-    // 시스템 테마 변경 감지
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    // 시스템 테마 변경 감지 — onScopeDispose 로 해제 등록
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => {
       if (theme.value === 'system') {
         applyTheme('system')
       }
-    })
+    }
+    mq.addEventListener('change', onChange)
+    onScopeDispose(() => mq.removeEventListener('change', onChange))
   }
 
   return { theme, resolved, setTheme, toggleTheme, initTheme }

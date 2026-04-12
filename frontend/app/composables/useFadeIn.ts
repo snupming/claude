@@ -8,6 +8,8 @@
  * - 이미 뷰포트 안에 있는 요소는 즉시 .visible 클래스 부여
  */
 export function useFadeIn() {
+  let observer: IntersectionObserver | null = null
+
   onMounted(() => {
     nextTick(() => {
       const fadeEls = document.querySelectorAll('.fade-in')
@@ -24,12 +26,12 @@ export function useFadeIn() {
       document.documentElement.setAttribute('data-fade-ready', '')
 
       // 뷰포트 밖 요소를 위한 IntersectionObserver
-      const observer = new IntersectionObserver(
+      observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
               entry.target.classList.add('visible')
-              observer.unobserve(entry.target)
+              observer?.unobserve(entry.target)
             }
           }
         },
@@ -38,9 +40,15 @@ export function useFadeIn() {
 
       fadeEls.forEach((el) => {
         if (!el.classList.contains('visible')) {
-          observer.observe(el)
+          observer?.observe(el)
         }
       })
     })
+  })
+
+  // 컴포넌트 언마운트 시 observer 해제
+  onScopeDispose(() => {
+    observer?.disconnect()
+    observer = null
   })
 }
