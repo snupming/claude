@@ -11,6 +11,9 @@ PR 단위로 위반 사항이 없는지 self-check 후 작업을 종료한다.
 - **빈 `catch` 블록 금지** — 최소 `console.error` 또는 toast/log. 오류를 삼키지 말 것.
 - **`as T` 우회 단언 금지** — 특히 `undefined as T`, `{} as Foo` 같은 패턴.
 - **모듈 레벨 가변 상태 금지** — composable 내부 `let pollTimer` 같은 패턴 금지. 컴포넌트/스코프 안으로 옮겨라.
+  - **예외**: 클라이언트 전용 런타임 싱글톤(폴링 타이머, observer 등)은 모듈 레벨 허용.
+    SSR 에서 접근하지 않고, 앱 전체에서 하나만 존재해야 하는 상태에 한정.
+    (`useDetection.ts` 의 `pollTimer` 참조)
 - **동적 값을 URL 에 직접 보간 금지** — `safeJoin()` (`server/utils/backend.ts`) 또는 `encodeURIComponent` 사용.
 - **새 파일/유틸 무분별 생성 금지** — 아래 "재사용 우선" 규칙 참조.
 
@@ -19,9 +22,12 @@ PR 단위로 위반 사항이 없는지 self-check 후 작업을 종료한다.
 - 클라이언트→서버 라우트 호출은 `$fetch`, SSR 데이터 패칭은 `useFetch`.
 - `addEventListener`, `IntersectionObserver`, `setInterval`, `setTimeout`,
   `MutationObserver` 등은 반드시 `onScopeDispose` 또는 `onUnmounted` 에서 해제.
-- `server/api/*` 의 모든 body/query/params 는 zod 스키마로 검증
-  (`server/utils/validate.ts` 의 `readValidatedBody` / `getValidatedQuery` / `getValidatedRouterParams`).
-- JWT 등 외부 문자열 파싱은 try/catch + 필드 존재 검증.
+- `server/api/*` 의 모든 body/query/params 는 zod 스키마로 검증.
+  h3 빌트인 `readValidatedBody` / `getValidatedQuery` / `getValidatedRouterParams` +
+  `server/utils/validate.ts` 의 `zh()` 어댑터 조합 사용.
+  예: `await readValidatedBody(event, zh(MySchema))`
+- JWT 등 외부 문자열 파싱은 try/catch + zod `safeParse` 로 필드 존재 검증.
+  (`server/api/auth/me.get.ts` 참조)
 - 비동기 작업 중복 실행 가드 (`isLoading` ref, mutex, 또는 `AbortController`).
 - 폴링은 이전 요청 완료 후에만 다음 요청을 보낼 것 (in-flight 플래그 사용).
 
